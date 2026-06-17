@@ -1,0 +1,3277 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STOKMA — Stock Opname System</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f5f2;
+    --surface: #ffffff;
+    --surface2: #f0f0ed;
+    --border: #e0ddd8;
+    --accent: #c8880a;
+    --accent2: #a06008;
+    --plus: #1a7a3a;
+    --minus: #c0392b;
+    --sesuai: #6b7280;
+    --text: #111111;
+    --text2: #555555;
+    --text3: #999999;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Barlow', sans-serif;
+    --cond: 'Barlow Condensed', sans-serif;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+
+  /* ── LOGIN ── */
+  #loginScreen {
+    position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px 24px;
+  }
+  .login-badge {
+    font-family: var(--cond); font-weight: 900; font-size: 10px; letter-spacing: 4px;
+    color: var(--accent); border: 1px solid var(--accent); padding: 4px 12px; margin-bottom: 24px;
+    text-transform: uppercase;
+  }
+  .login-title { font-family: var(--cond); font-weight: 900; font-size: 52px; letter-spacing: -1px; line-height: 1; color: var(--text); margin-bottom: 4px; }
+  .login-sub { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 2px; margin-bottom: 40px; text-transform: uppercase; }
+  .login-box { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+  .login-field label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--text2); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .login-field input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 16px; padding: 14px 16px; outline: none; transition: border-color .15s; border-radius: 0;
+  }
+  .login-field input:focus { border-color: var(--accent); }
+  .login-btn {
+    margin-top: 8px; background: var(--accent); color: #000; border: none; font-family: var(--cond);
+    font-weight: 800; font-size: 18px; letter-spacing: 2px; padding: 16px; cursor: pointer;
+    text-transform: uppercase; transition: opacity .15s; width: 100%; border-radius: 0;
+  }
+  .login-btn:active { opacity: .8; }
+  .login-err { font-family: var(--mono); font-size: 11px; color: var(--minus); text-align: center; min-height: 16px; }
+
+  /* ── APP SHELL ── */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; height: 50px; position: sticky; top: 0; z-index: 100;
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .topbar-logo { font-family: var(--cond); font-weight: 900; font-size: 20px; letter-spacing: 1px; color: var(--accent); }
+  .topbar-right { display: flex; gap: 6px; align-items: center; }
+  .icon-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+    width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 15px; transition: all .15s; flex-shrink: 0; border-radius: 0;
+  }
+  .icon-btn:active { background: var(--border); }
+  .icon-btn.accent { background: var(--accent); color: #000; border-color: var(--accent); }
+  .icon-btn.danger { background: rgba(239,68,68,.15); color: var(--minus); border-color: rgba(239,68,68,.3); }
+  .icon-btn.danger:active { background: var(--minus); color: #fff; }
+
+  /* ── STAT GRID ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); }
+  .stat-cell { background: var(--surface); padding: 10px 4px; text-align: center; overflow: hidden; }
+  .stat-num { font-family: var(--cond), 'Arial Narrow', Arial, sans-serif; font-weight: 900; font-size: clamp(18px, 6vw, 28px); line-height: 1; color: var(--text); }
+  .stat-label { font-family: var(--mono), monospace; font-size: clamp(6px, 1.8vw, 7px); letter-spacing: 1px; color: var(--text2); text-transform: uppercase; margin-top: 3px; word-break: break-all; }
+  .stat-num.plus { color: var(--plus); }
+  .stat-num.minus { color: var(--minus); }
+  .stat-num.sesuai { color: var(--sesuai); }
+  .stat-num.accent { color: var(--accent); }
+
+  /* ── INPUT SECTION ── */
+  .section { padding: 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .section-title { font-family: var(--cond); font-weight: 800; font-size: 10px; letter-spacing: 3px; color: var(--text3); text-transform: uppercase; }
+  .field-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-family: var(--mono); font-size: 8px; letter-spacing: 1.5px; color: var(--text2); text-transform: uppercase; }
+  .inp {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 16px; padding: 11px 12px; outline: none;
+    transition: border-color .15s; width: 100%; border-radius: 0; -webkit-appearance: none;
+  }
+  .inp:focus { border-color: var(--accent); }
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .btn-submit {
+    background: var(--accent); color: #000; border: none; font-family: var(--cond);
+    font-weight: 800; font-size: 15px; letter-spacing: 1px; padding: 11px 18px;
+    cursor: pointer; text-transform: uppercase; white-space: nowrap; transition: opacity .15s;
+    flex-shrink: 0; border-radius: 0;
+  }
+  .btn-submit:active { opacity: .75; }
+  .btn-secondary {
+    background: transparent; border: 1px solid var(--border); color: var(--text2);
+    font-family: var(--cond); font-weight: 700; font-size: 12px; letter-spacing: 1px;
+    padding: 9px 14px; cursor: pointer; text-transform: uppercase; transition: all .15s; border-radius: 0;
+  }
+  .btn-secondary:active { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); color: var(--minus);
+    font-family: var(--cond); font-weight: 700; font-size: 12px; letter-spacing: 1px;
+    padding: 9px 14px; cursor: pointer; text-transform: uppercase; transition: all .15s; border-radius: 0;
+  }
+  .btn-danger:active { background: var(--minus); color: #fff; border-color: var(--minus); }
+
+  /* ── RESULT CARDS ── */
+  #resultsTable { display: none; }
+  .result-cards { display: flex; flex-direction: column; }
+  .result-card {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 11px 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .result-card:active { background: var(--surface2); }
+  .result-card-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .result-card-code { font-family: var(--mono); font-size: 9px; color: var(--accent); letter-spacing: .5px; }
+  .result-card-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result-card-qty { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 1px; }
+  .result-card-qty .phy { color: var(--text); font-weight: 700; }
+  .result-card-qty .diff-plus { color: var(--plus); }
+  .result-card-qty .diff-minus { color: var(--minus); }
+  .result-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .result-del-btn {
+    background: none; border: none; color: var(--text3); font-size: 18px;
+    cursor: pointer; padding: 4px 2px; line-height: 1; transition: color .1s;
+  }
+  .result-del-btn:active { color: var(--minus); }
+  .result-reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--text3);
+    font-family: var(--cond); font-weight: 700; font-size: 9px; letter-spacing: 1px;
+    cursor: pointer; padding: 3px 7px; line-height: 1.4; transition: all .1s;
+    text-transform: uppercase; border-radius: 0; white-space: nowrap;
+  }
+  .result-reset-btn:active { border-color: var(--minus); color: var(--minus); }
+  .result-card.deleted-flash {
+    opacity: 0.4; background: rgba(239,68,68,.06);
+    transition: opacity .3s, background .3s;
+  }
+  .result-card .qty-deleted {
+    text-decoration: line-through; color: var(--text3);
+  }
+  .result-undo-inline {
+    font-family: var(--cond); font-weight: 700; font-size: 9px; letter-spacing: 1px;
+    color: var(--accent); border: 1px solid var(--accent); background: transparent;
+    padding: 3px 7px; cursor: pointer; text-transform: uppercase; border-radius: 0;
+    white-space: nowrap;
+  }
+  .result-undo-inline:active { background: var(--accent); color: #000; }
+
+  /* ── MISSING / COMPARE ── */
+  .missing-item {
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .missing-dot { width: 8px; height: 8px; background: var(--minus); flex-shrink: 0; }
+  .missing-name { font-size: 13px; font-weight: 500; }
+  .missing-code { font-family: var(--mono); font-size: 9px; color: var(--accent); }
+
+  /* ── COMPARE TABLE ── */
+  .compare-header {
+    display: grid; grid-template-columns: 1fr 60px 60px 60px 70px;
+    gap: 4px; padding: 8px 14px; background: var(--surface2);
+    border-bottom: 1px solid var(--border); position: sticky; top: 50px; z-index: 50;
+  }
+  .compare-header > div { font-family: var(--mono); font-size: 8px; letter-spacing: 1px; color: var(--text3); text-transform: uppercase; }
+  .compare-header > div:not(:first-child) { text-align: center; }
+
+  .compare-row {
+    display: grid; grid-template-columns: 1fr 60px 60px 60px 70px;
+    gap: 4px; padding: 10px 14px; border-bottom: 1px solid var(--border);
+    align-items: center; background: var(--surface);
+  }
+  .compare-row:nth-child(even) { background: #fafaf8; }
+  .compare-row-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .compare-row-code { font-family: var(--mono); font-size: 8px; color: var(--accent); }
+  .compare-row-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .compare-cell { font-family: var(--mono); font-size: 12px; text-align: center; }
+  .compare-cell.plus { color: var(--plus); font-weight: 700; }
+  .compare-cell.minus { color: var(--minus); font-weight: 700; }
+  .compare-missing-tag {
+    font-family: var(--cond); font-weight: 800; font-size: 9px; letter-spacing: 1px;
+    padding: 2px 6px; background: rgba(239,68,68,.15); color: var(--minus); text-align: center;
+  }
+  .compare-ok-tag {
+    font-family: var(--cond); font-weight: 800; font-size: 9px; letter-spacing: 1px;
+    padding: 2px 6px; background: rgba(148,163,184,.1); color: var(--sesuai); text-align: center;
+  }
+  .compare-plus-tag {
+    font-family: var(--cond); font-weight: 800; font-size: 9px; letter-spacing: 1px;
+    padding: 2px 6px; background: rgba(34,197,94,.15); color: var(--plus); text-align: center;
+  }
+  .compare-minus-tag {
+    font-family: var(--cond); font-weight: 800; font-size: 9px; letter-spacing: 1px;
+    padding: 2px 6px; background: rgba(239,68,68,.15); color: var(--minus); text-align: center;
+  }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px;
+    background: var(--surface); border-bottom: 1px solid var(--border); scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    font-family: var(--cond); font-weight: 700; font-size: 11px; letter-spacing: 1px;
+    padding: 5px 12px; border: 1px solid var(--border); color: var(--text3); cursor: pointer;
+    white-space: nowrap; transition: all .15s; flex-shrink: 0; text-transform: uppercase;
+    background: transparent; border-radius: 0;
+  }
+  .filter-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* ── MASTER CARDS ── */
+  .master-cards { display: flex; flex-direction: column; }
+  .master-card {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .master-card-code { font-family: var(--mono); font-size: 9px; color: var(--accent); min-width: 55px; flex-shrink: 0; }
+  .master-card-name { flex: 1; font-size: 12px; color: var(--text); min-width: 0; word-break: break-word; }
+  .master-card-qty { font-family: var(--mono); font-size: 12px; color: var(--text2); flex-shrink: 0; }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block; font-family: var(--cond); font-weight: 800; font-size: 10px;
+    letter-spacing: 1px; padding: 3px 8px; text-transform: uppercase; border-radius: 2px;
+  }
+  .badge.plus { background: rgba(34,197,94,.15); color: var(--plus); }
+  .badge.minus { background: rgba(239,68,68,.15); color: var(--minus); }
+  .badge.sesuai { background: rgba(148,163,184,.1); color: var(--sesuai); }
+  .badge.unchecked { background: rgba(255,255,255,.05); color: var(--text3); }
+
+  /* ── TABLE (master) ── */
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--surface2); }
+  th { font-family: var(--cond); font-weight: 700; font-size: 9px; letter-spacing: 1.5px; color: var(--text3); text-transform: uppercase; padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { font-family: var(--mono); font-size: 12px; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+
+  /* ── MASTER IMPORT ── */
+  .master-fields { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+  .master-add-btn {
+    background: var(--surface2); border: 1px solid var(--accent); color: var(--accent);
+    font-family: var(--cond); font-weight: 800; font-size: 20px; padding: 11px 0;
+    cursor: pointer; text-align: center; transition: all .15s; width: 100%; border-radius: 0;
+  }
+  .master-add-btn:active { background: var(--accent); color: #000; }
+  .master-pending {
+    background: var(--surface2); border: 1px solid var(--border);
+    max-height: 200px; overflow-y: auto;
+  }
+  .pending-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px;
+  }
+  .pending-code { color: var(--accent); min-width: 52px; font-size: 9px; }
+  .pending-name { flex: 1; color: var(--text); }
+  .pending-qty { color: var(--text2); min-width: 32px; text-align: right; }
+  .pending-del { color: var(--minus); cursor: pointer; font-size: 14px; padding: 0 4px; flex-shrink: 0; }
+  .pending-empty { font-family: var(--mono); font-size: 10px; color: var(--text3); padding: 14px; text-align: center; }
+  .pending-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 12px; border-bottom: 1px solid var(--border);
+    font-family: var(--cond); font-weight: 700; font-size: 9px; letter-spacing: 1px;
+    color: var(--text3); text-transform: uppercase;
+  }
+
+  /* ── VARIANT MODAL ── */
+  #variantModal {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0); display: none; align-items: flex-end; justify-content: center;
+    transition: background .25s;
+  }
+  #variantModal.open { display: flex; background: rgba(0,0,0,.5); }
+  .variant-sheet {
+    background: var(--surface); width: 100%; max-width: 480px;
+    border-top: 2px solid var(--accent); max-height: 72vh;
+    display: flex; flex-direction: column;
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.32,1,.4,1);
+    padding-bottom: var(--safe-bottom);
+  }
+  #variantModal.open .variant-sheet { transform: translateY(0); }
+  .variant-header {
+    padding: 12px 14px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
+  }
+  .variant-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
+  .variant-title { font-family: var(--cond); font-weight: 800; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; color: var(--text); }
+  .variant-subtitle { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
+  .variant-list-wrap { overflow-y: auto; flex: 1; }
+  .variant-item {
+    padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background .1s; display: flex; align-items: center; gap: 10px;
+  }
+  .variant-item:active { background: var(--surface2); }
+  .variant-item-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex-shrink: 0; opacity: .5; }
+  .variant-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .variant-code { font-family: var(--mono); font-size: 9px; color: var(--accent); letter-spacing: 1px; }
+  .variant-name { font-family: var(--sans); font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .variant-qty { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+  .variant-arrow { color: var(--text3); font-size: 14px; flex-shrink: 0; }
+
+  /* ── EMPTY ── */
+  .empty { text-align: center; padding: 48px 24px; font-family: var(--mono); font-size: 11px; color: var(--text3); line-height: 2; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: calc(66px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 11px; padding: 9px 18px;
+    opacity: 0; transition: all .25s; z-index: 999; pointer-events: none; white-space: nowrap;
+    max-width: calc(100vw - 28px); overflow: hidden; text-overflow: ellipsis;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface);
+    border-top: 1px solid var(--border); display: flex; z-index: 100;
+    padding-bottom: var(--safe-bottom);
+  }
+  .nav-btn {
+    flex: 1; padding: 8px 4px 6px; display: flex; flex-direction: column; align-items: center;
+    gap: 2px; cursor: pointer; transition: color .15s; color: var(--text3); border: none; background: none;
+  }
+  .nav-btn.active { color: var(--accent); }
+  .nav-btn svg { width: 19px; height: 19px; }
+  .nav-label { font-family: var(--cond); font-weight: 700; font-size: 8px; letter-spacing: 1px; text-transform: uppercase; }
+  .spacer-nav { height: calc(60px + var(--safe-bottom)); }
+
+  /* ── PAGE ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* misc */
+  .divider { height: 1px; background: var(--border); }
+  .info-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  .info-key { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+  .info-val { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+
+  /* Selected variant */
+  #selectedVariantPreview {
+    display: none; background: var(--surface2); border: 1px solid var(--accent);
+    padding: 9px 12px; font-family: var(--mono); font-size: 11px;
+  }
+
+  /* Confirm modal */
+  #confirmModal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 800;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  #confirmModal.open { display: flex; }
+  .confirm-box {
+    background: var(--surface); border: 1px solid var(--border); border-top: 2px solid var(--minus);
+    width: 100%; max-width: 340px; padding: 24px 20px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .confirm-title { font-family: var(--cond); font-weight: 900; font-size: 18px; letter-spacing: 1px; color: var(--text); text-transform: uppercase; }
+  .confirm-msg { font-family: var(--mono); font-size: 11px; color: var(--text2); line-height: 1.8; }
+  .confirm-actions { display: flex; gap: 8px; }
+  .confirm-yes {
+    flex: 1; background: var(--minus); color: #fff; border: none; font-family: var(--cond);
+    font-weight: 800; font-size: 15px; letter-spacing: 1px; padding: 13px; cursor: pointer; text-transform: uppercase; border-radius: 0;
+  }
+  .confirm-no {
+    flex: 1; background: transparent; color: var(--text2); border: 1px solid var(--border); font-family: var(--cond);
+    font-weight: 700; font-size: 15px; letter-spacing: 1px; padding: 13px; cursor: pointer; text-transform: uppercase; border-radius: 0;
+  }
+
+  @media (max-width: 360px) {
+    .login-title { font-size: 40px; }
+    .stat-num { font-size: clamp(16px, 5.5vw, 24px); }
+    .compare-header { grid-template-columns: 1fr 50px 50px 50px 60px; }
+    .compare-row { grid-template-columns: 1fr 50px 50px 50px 60px; }
+  }
+
+  /* ── MODE SWITCHER ── */
+  .mode-bar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+    background: var(--surface2); border-bottom: 2px solid var(--border);
+  }
+  .mode-label { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; color: var(--text3); text-transform: uppercase; flex-shrink: 0; }
+  .mode-toggle-wrap { display: flex; border: 1px solid var(--border); flex: 1; }
+  .mode-toggle-btn {
+    flex: 1; padding: 7px 6px; font-family: var(--cond); font-weight: 800; font-size: 11px;
+    letter-spacing: 1px; text-align: center; cursor: pointer; border: none; background: transparent;
+    color: var(--text3); text-transform: uppercase; transition: all .15s;
+  }
+  .mode-toggle-btn.active { background: var(--accent); color: #000; }
+  .mode-toggle-btn.imei-active { background: #7c3aed; color: #fff; }
+
+  /* ── IMEI SCANNER MODE ── */
+  #imeiScanSection { display: none; }
+  #normalInputSection { display: block; }
+
+  .imei-scan-box {
+    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .imei-mode-indicator {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.4);
+  }
+  .imei-mode-dot { width: 8px; height: 8px; background: #7c3aed; border-radius: 50%; flex-shrink: 0; animation: pulse-imei 1.2s infinite; }
+  @keyframes pulse-imei { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .imei-mode-text { font-family: var(--mono); font-size: 9px; color: #a78bfa; letter-spacing: 2px; text-transform: uppercase; }
+
+  .imei-inp {
+    background: var(--bg); border: 2px solid #7c3aed; color: #a78bfa;
+    font-family: var(--mono); font-size: 18px; padding: 14px 12px; outline: none;
+    transition: border-color .15s; width: 100%; border-radius: 0; letter-spacing: 2px;
+    -webkit-appearance: none; text-align: center;
+  }
+  .imei-inp:focus { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(124,58,237,.2); }
+  .imei-inp::placeholder { color: #4c3870; letter-spacing: 1px; font-size: 12px; }
+
+  .imei-status-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .imei-status-chip {
+    font-family: var(--cond); font-weight: 700; font-size: 11px; letter-spacing: 1px;
+    padding: 6px 12px; border: 1px solid var(--border); color: var(--text3);
+    cursor: pointer; text-transform: uppercase; transition: all .15s; border-radius: 0; background: transparent;
+  }
+  .imei-status-chip.selected { border-color: #7c3aed; color: #a78bfa; background: rgba(124,58,237,.15); }
+
+  .imei-result-card {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 11px 14px;
+  }
+  .imei-result-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .imei-result-code { font-family: var(--mono); font-size: 9px; color: #a78bfa; letter-spacing: .5px; }
+  .imei-result-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .imei-result-imei { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 2px; letter-spacing: 1px; }
+  .imei-result-status-badge {
+    font-family: var(--cond); font-weight: 800; font-size: 9px; letter-spacing: 1px;
+    padding: 2px 7px; border-radius: 2px; flex-shrink: 0;
+  }
+  .imei-status-new { background: rgba(34,197,94,.15); color: var(--plus); }
+  .imei-status-show { background: rgba(167,139,250,.15); color: #a78bfa; }
+  .imei-status-display { background: rgba(240,192,64,.15); color: var(--accent); }
+  .imei-status-error { background: rgba(239,68,68,.2); color: #ff6b6b; border: 1px solid rgba(239,68,68,.3); }
+  .imei-status-refurb { background: rgba(96,165,250,.15); color: #60a5fa; }
+  .imei-status-damaged { background: rgba(239,68,68,.15); color: var(--minus); }
+  .imei-status-other { background: rgba(148,163,184,.1); color: var(--sesuai); }
+  .imei-del-btn { background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; padding: 2px; flex-shrink: 0; }
+  .imei-del-btn:active { color: var(--minus); }
+
+  .imei-counter-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(124,58,237,.08); border-bottom: 1px solid rgba(124,58,237,.2); }
+  .imei-counter { font-family: var(--cond); font-weight: 900; font-size: 22px; color: #a78bfa; }
+  .imei-counter-label { font-family: var(--mono); font-size: 8px; color: #7c3aed; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ── SCANNER HASIL PAGE ── */
+  #scannerHasilSection { display: none; }
+  #normalHasilSection { display: block; }
+
+  /* ── SCANNER MASTER PAGE ── */
+  #scannerMasterSection { display: none; }
+  #normalMasterSection { display: block; }
+
+  .imei-master-card {
+    padding: 10px 14px; border-bottom: 1px solid rgba(124,58,237,.2);
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(124,58,237,.04);
+  }
+  .imei-master-card-imei { font-family: var(--mono); font-size: 10px; color: #a78bfa; flex: 1; min-width: 0; word-break: break-all; letter-spacing: .5px; }
+  .imei-master-card-name { font-size: 11px; color: var(--text); min-width: 0; word-break: break-word; }
+  .imei-master-card-code { font-family: var(--mono); font-size: 9px; color: var(--accent); }
+  .imei-master-card-status { font-family: var(--cond); font-weight: 800; font-size: 9px; letter-spacing: 1px; padding: 2px 6px; border-radius: 2px; flex-shrink: 0; }
+  .imei-master-del-btn { background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; padding: 2px; flex-shrink: 0; }
+  .imei-master-del-btn:active { color: var(--minus); }
+
+  .scanner-hasil-card {
+    background: var(--surface); border-bottom: 1px solid rgba(124,58,237,.2);
+    padding: 11px 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .scanner-hasil-imei { font-family: var(--mono); font-size: 10px; color: #a78bfa; letter-spacing: .5px; margin-top: 2px; }
+
+  /* ── HIDE TOPBAR NORMAL-ONLY BUTTONS IN IMEI MODE ── */
+  .imei-mode-active .normal-only-btn { display: none !important; }
+
+  /* ── RESPONSIVE: DESKTOP / WINDOWS ── */
+  @media (min-width: 640px) {
+    body { display: flex; justify-content: center; background: #080808; }
+    #loginScreen { max-width: 420px; margin: auto; }
+    #app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      position: relative;
+      box-shadow: 0 0 60px rgba(0,0,0,.8);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    .topbar { max-width: 480px; }
+    .bottom-nav { max-width: 480px; left: 50%; transform: translateX(-50%); }
+    #toast { bottom: calc(66px + var(--safe-bottom)); }
+    .stat-num { font-size: clamp(20px, 4vw, 28px); }
+    .imei-inp { font-size: 16px; }
+    .inp { font-size: 14px; }
+    /* wider compare table on desktop */
+    .compare-header, .compare-row {
+      grid-template-columns: 1fr 70px 70px 70px 80px;
+    }
+  }
+  @media (min-width: 900px) {
+    #app { max-width: 520px; }
+    .topbar { max-width: 520px; }
+    .bottom-nav { max-width: 520px; }
+  }
+  @media (min-width: 1200px) {
+    #app { max-width: 560px; }
+    .topbar { max-width: 560px; }
+    .bottom-nav { max-width: 560px; }
+  }
+  /* Desktop sidebar decoration */
+  @media (min-width: 640px) {
+    body::before {
+      content: 'STOKMA';
+      position: fixed; left: 0; top: 50%; transform: translateY(-50%) rotate(-90deg);
+      font-family: var(--cond); font-weight: 900; font-size: 11px; letter-spacing: 6px;
+      color: var(--text3); opacity: .3; pointer-events: none;
+    }
+  }
+
+  /* ── FILTER GROUPS (multi-select) ── */
+  .filter-bar { flex-wrap: wrap !important; gap: 0 !important; padding: 0 !important; }
+  .filter-group {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 10px 14px; width: 100%; border-bottom: 1px solid var(--border);
+  }
+  .filter-group:last-child { border-bottom: none; }
+  .filter-group-label {
+    font-family: var(--cond); font-weight: 700; font-size: 9px; letter-spacing: 2px;
+    color: var(--text3); text-transform: uppercase; width: 100%; margin-bottom: 2px;
+  }
+  .filter-chip {
+    font-family: var(--cond); font-weight: 700; font-size: 11px; letter-spacing: 1px;
+    padding: 5px 12px; border: 1px solid var(--border); color: var(--text2); cursor: pointer;
+    white-space: nowrap; transition: all .15s; flex-shrink: 0; text-transform: uppercase;
+    background: transparent; border-radius: 0;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .filter-chip .chip-count {
+    font-family: var(--mono); font-size: 9px; font-weight: 400;
+    background: var(--surface2); border-radius: 2px; padding: 0 5px; line-height: 16px;
+    color: var(--text3);
+  }
+  .filter-chip.active { border-color: transparent; color: #fff; }
+  .filter-chip.active .chip-count { background: rgba(255,255,255,.25); color: #fff; }
+  .filter-chip[data-color="purple"].active  { background: #6d4aff; }
+  .filter-chip[data-color="green"].active   { background: #1a7a3a; }
+  .filter-chip[data-color="red"].active     { background: #c0392b; }
+  .filter-chip[data-color="yellow"].active  { background: #c8880a; }
+  .filter-chip[data-color="blue"].active    { background: #1a5fa0; }
+  .filter-chip[data-color="violet"].active  { background: #6d3a9a; }
+  .filter-chip[data-color="orange"].active  { background: #a04010; }
+
+  /* ── IMEI COUNTER ROW ── */
+  .imei-counter-row {
+    display: flex; align-items: stretch;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .imei-stat-item {
+    flex: 1; padding: 14px 8px; display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+  }
+  .imei-stat-item + .imei-stat-item { border-left: 1px solid var(--border); }
+  .imei-stat-num {
+    font-family: var(--cond); font-weight: 900; font-size: 32px;
+    line-height: 1; letter-spacing: -1px; color: var(--text);
+  }
+  .imei-stat-num.plus  { color: var(--plus); }
+  .imei-stat-num.minus { color: var(--minus); }
+  .imei-stat-label {
+    font-family: var(--mono); font-size: 8px; letter-spacing: 1px;
+    color: var(--text3); text-transform: uppercase;
+  }
+
+  /* ── IMEI STATUS BADGES ── */
+  .imei-status-new     { background: rgba(26,122,58,.1);  color: #1a7a3a; border: 1px solid rgba(26,122,58,.25); }
+  .imei-status-show    { background: rgba(109,58,255,.1); color: #6d3a9a; border: 1px solid rgba(109,58,255,.25); }
+  .imei-status-display { background: rgba(200,136,10,.1); color: #c8880a; border: 1px solid rgba(200,136,10,.25); }
+  .imei-status-refurb  { background: rgba(26,95,160,.1);  color: #1a5fa0; border: 1px solid rgba(26,95,160,.25); }
+  .imei-status-error   { background: rgba(192,57,43,.1);  color: #c0392b; border: 1px solid rgba(192,57,43,.25); }
+  .imei-status-damaged { background: rgba(192,57,43,.08); color: #c0392b; border: 1px solid rgba(192,57,43,.2); }
+  .imei-status-other   { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+  .badge { font-family: var(--cond); font-weight: 800; font-size: 10px; letter-spacing: 1px; padding: 3px 8px; text-transform: uppercase; border-radius: 2px; display: inline-block; }
+
+  /* ── SCAN TAGS ── */
+  .scan-tag { font-family: var(--cond); font-weight: 800; font-size: 9px; letter-spacing: 1px; padding: 2px 7px; border-radius: 2px; white-space: nowrap; text-transform: uppercase; }
+  .tag-scanned     { background: rgba(26,122,58,.12); color: #1a7a3a; }
+  .tag-not-scanned { background: rgba(192,57,43,.1);  color: #c0392b; }
+
+  /* ── TABS ── */
+  .tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .tab-btn {
+    flex: 1; padding: 11px 4px; font-family: var(--cond); font-weight: 700; font-size: 10px;
+    letter-spacing: 1.5px; text-transform: uppercase; color: var(--text3);
+    background: none; border: none; border-bottom: 2px solid transparent;
+    cursor: pointer; transition: all .15s; margin-bottom: -1px;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    padding: 9px 14px; background: var(--surface2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .section-header-title {
+    font-family: var(--cond); font-weight: 700; font-size: 9px;
+    letter-spacing: 2px; color: var(--text3); text-transform: uppercase;
+  }
+
+  /* ── CONFIRM ── */
+  #confirmModal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 2000;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  #confirmModal.open { display: flex; }
+  .confirm-box { background: var(--surface); width: 100%; max-width: 320px; padding: 24px; border: 1px solid var(--border); }
+  .confirm-title { font-family: var(--cond); font-weight: 900; font-size: 18px; color: var(--text); margin-bottom: 8px; text-transform: uppercase; }
+  .confirm-msg { font-family: var(--mono); font-size: 11px; color: var(--text2); line-height: 1.6; margin-bottom: 20px; }
+  .confirm-btns { display: flex; gap: 8px; }
+  .confirm-yes { flex: 1; background: var(--minus); color: #fff; border: none; font-family: var(--cond); font-weight: 800; font-size: 14px; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+  .confirm-yes:active { opacity: .85; }
+  .confirm-no { flex: 1; background: transparent; color: var(--text2); border: 1px solid var(--border); font-family: var(--cond); font-weight: 700; font-size: 12px; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+  .confirm-no:active { border-color: var(--text); }
+
+  /* ── AUTOCOMPLETE ── */
+  .ac-item {
+    padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 2px; transition: background .1s;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:active, .ac-item.ac-hover { background: var(--surface2); }
+  .ac-item-name { font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--sans); }
+  .ac-item-code { font-family: var(--mono); font-size: 10px; color: var(--accent); }
+  .ac-item-mark { background: rgba(200,136,10,.2); border-radius: 2px; }
+  .ac-empty { font-family: var(--mono); padding: 12px 14px; font-size: 10px; color: var(--text3); text-align: center; }
+
+  /* ── MISC ── */
+  .empty { text-align: center; padding: 48px 24px; font-family: var(--mono); font-size: 11px; color: var(--text3); line-height: 2; }
+  .spacer-nav { height: calc(60px + var(--safe-bottom)); }
+  .page { display: none; }
+  .page.active { display: block; }
+  .import-panel { background: var(--surface2); border: 1px solid var(--border); padding: 12px; }
+  .scanner-section-header {
+    display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    position: sticky; top: 50px; z-index: 10;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (min-width: 640px) {
+    body { display: flex; justify-content: center; background: #e8e6e0; }
+    #loginScreen { max-width: 420px; margin: auto; }
+    #app { width: 100%; max-width: 480px; min-height: 100vh; position: relative;
+      box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0,0,0,.15); }
+    .topbar { max-width: 480px; }
+    .bottom-nav { max-width: 480px; left: 50%; transform: translateX(-50%); }
+    .stat-num { font-size: clamp(20px, 4vw, 28px); }
+    .imei-inp { font-size: 16px; }
+    .inp { font-size: 14px; }
+    .compare-header, .compare-row { grid-template-columns: 1fr 70px 70px 70px 80px; }
+  }
+  @media (min-width: 900px) {
+    #app { max-width: 520px; }
+    .topbar { max-width: 520px; }
+    .bottom-nav { max-width: 520px; }
+  }
+  @media (min-width: 1200px) {
+    #app { max-width: 560px; }
+    .topbar { max-width: 560px; }
+    .bottom-nav { max-width: 560px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-badge">Warehouse System</div>
+  <div class="login-title">id.rizki18</div>
+  <div class="login-sub">Stock Opname Management</div>
+  <div class="login-box">
+    <div class="login-field">
+      <label>User ID</label>
+      <input type="text" id="loginId" placeholder="admin" autocomplete="off" autocapitalize="none">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPw" placeholder="••••">
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <button class="login-btn" onclick="doLogin()">MASUK →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">STOKMA</div>
+    <div class="topbar-right">
+      <button class="icon-btn normal-only-btn" id="topbarUndoBtn" onclick="doUndo()" title="Undo">↩</button>
+      <button class="icon-btn danger normal-only-btn" id="topbarResetBtn" onclick="confirmResetHasil()" title="Reset Hasil">🗑</button>
+      <button class="icon-btn accent normal-only-btn" id="topbarExportBtn" onclick="exportXLSX()" title="Export XLSX">↓</button>
+      <button class="icon-btn" onclick="doLogout()" title="Logout">⏏</button>
+    </div>
+  </div>
+
+  <!-- PAGE: INPUT -->
+  <div id="pageInput" class="page active">
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="divider"></div>
+
+    <!-- MODE SWITCHER -->
+    <div class="mode-bar">
+      <div class="mode-label">Mode SO:</div>
+      <div class="mode-toggle-wrap">
+        <button class="mode-toggle-btn active" id="modeNormalBtn" onclick="switchSoMode('normal')">&#128230; Normal</button>
+        <button class="mode-toggle-btn" id="modeImeiBtn" onclick="switchSoMode('imei')">&#128225; IMEI / Scanner</button>
+      </div>
+    </div>
+
+    <!-- NORMAL INPUT SECTION -->
+    <div id="normalInputSection">
+    <div class="section">
+      <div class="section-title">Input Stok Fisik</div>
+      <div class="field-wrap">
+        <div class="field-label">Kode / Nama Produk</div>
+        <div style="position:relative;">
+          <input class="inp" id="inpCode" type="text" placeholder="Ketik kode atau nama..." autocomplete="off" autocapitalize="none" style="padding-right:42px;">
+          <span id="inpCodeIcon" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:18px;display:none;pointer-events:none;"></span>
+          <div id="autocompleteDropdown" style="display:none;position:absolute;left:0;right:0;bottom:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);box-shadow:0 -4px 16px rgba(0,0,0,.1);z-index:200;max-height:180px;overflow-y:auto;border-radius:4px 4px 0 0;"></div>
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="field-wrap" id="qtyFieldWrap" style="display:none;">
+          <div class="field-label">Qty Fisik</div>
+          <input class="inp" id="inpQty" type="number" placeholder="1" min="1" inputmode="numeric">
+        </div>
+        <button class="btn-secondary" id="toggleQtyBtn" onclick="toggleQtyField()" style="flex-shrink:0;height:44px;padding:0 12px;font-size:16px;">＃</button>
+        <button class="btn-submit" onclick="submitInput()" style="flex:1;">+ ADD</button>
+      </div>
+      <div id="selectedVariantPreview">
+        <div style="color:var(--accent);font-size:8px;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;">Variant Dipilih</div>
+        <div id="svName" style="font-weight:700;font-size:13px;"></div>
+        <div id="svCode" style="color:var(--text2);font-size:10px;"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section" style="padding-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="section-title">Hasil Input (<span id="resultCount">0</span>)</div>
+      </div>
+    </div>
+    </div><!-- end normalInputSection -->
+
+    <!-- IMEI SCANNER SECTION -->
+    <div id="imeiScanSection" style="display:none;">
+      <div class="imei-scan-box">
+        <div class="imei-mode-indicator">
+          <div class="imei-mode-dot"></div>
+          <div class="imei-mode-text">Scanner aktif &#8212; scan IMEI langsung</div>
+          <div style="margin-left:auto;font-family:var(--mono);font-size:8px;color:#7c3aed;" id="imeiDbCount">DB: 0 IMEI</div>
+        </div>
+        <div class="field-wrap">
+          <div class="field-label" style="color:#a78bfa;">Scan IMEI</div>
+          <input class="imei-inp" id="imeiInput" type="text" placeholder="Scan IMEI di sini..." autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+        </div>
+        <!-- Lookup result panel -->
+        <div id="imeiLookupResult" style="display:none;">
+          <div id="imeiLookupFound" style="display:none;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);padding:10px 12px;">
+            <div style="font-family:var(--mono);font-size:8px;color:#22c55e;letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;">&#10003; Ditemukan di database</div>
+            <div id="ilProductName" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;"></div>
+            <div id="ilProductCode" style="font-family:var(--mono);font-size:9px;color:#a78bfa;margin-bottom:4px;"></div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span id="ilStatusBadge" class="badge" style="border-radius:2px;font-size:10px;"></span>
+              <span id="ilImeiVal" style="font-family:var(--mono);font-size:10px;color:var(--text2);"></span>
+            </div>
+          </div>
+          <div id="imeiLookupNotFound" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);padding:10px 12px;">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--minus);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">&#8204;&#33; Tidak ada di database</div>
+            <div id="ilNotFoundImei" style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:6px;"></div>
+            <div style="font-family:var(--mono);font-size:8px;color:var(--text3);">Tetap disimpan sebagai IMEI tanpa referensi</div>
+          </div>
+        </div>
+      </div>
+      <div class="imei-counter-row">
+        <div class="imei-stat-item">
+          <div class="imei-stat-num" id="imeiCount">0</div>
+          <div class="imei-stat-label">Terscan</div>
+        </div>
+        <div class="imei-stat-divider"></div>
+        <div class="imei-stat-item">
+          <div class="imei-stat-num plus" id="imeiCountFound">0</div>
+          <div class="imei-stat-label">Ada di DB</div>
+        </div>
+        <div class="imei-stat-divider"></div>
+        <div class="imei-stat-item">
+          <div class="imei-stat-num minus" id="imeiCountMissing">0</div>
+          <div class="imei-stat-label">Tidak di DB</div>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="btn-secondary" style="font-size:10px;padding:5px 10px;border-color:rgba(124,58,237,.5);color:#a78bfa;" onclick="doUndoImei()" title="Undo scan terakhir">&#8617; UNDO</button>
+        <button class="btn-danger" style="font-size:10px;padding:5px 10px;margin-left:4px;" onclick="confirmResetImei()">&#8635; RESET</button>
+        <button class="btn-secondary" style="font-size:10px;padding:5px 10px;margin-left:4px;" onclick="exportImeiXLSXDetailed()">&#8595; EXPORT</button>
+      </div>
+      <!-- Import mapping UI (now in Master Scanner Panel) -->
+      <div id="imeiDbStatusBreakdown" style="display:none;overflow-x:auto;scrollbar-width:none;padding:8px 14px;gap:6px;border-bottom:1px solid rgba(124,58,237,.2);flex-wrap:wrap;"></div>
+      <div id="imeiResultCards" class="result-cards"></div>
+      <div id="imeiEmpty" class="empty">Belum ada data IMEI.<br>Scan atau masukkan IMEI di atas.</div>
+    </div><!-- end imeiScanSection -->
+
+    <table id="resultsTable">
+      <thead><tr><th>Kode</th><th>Nama</th><th>Sistem</th><th>Fisik</th><th>Selisih</th><th>Status</th><th></th></tr></thead>
+      <tbody id="resultsTbody"></tbody>
+    </table>
+    <div id="resultsCards" class="result-cards"></div>
+    <div id="resultsEmpty" class="empty">Belum ada data input.<br>Masukkan kode produk di atas.</div>
+    <div class="spacer-nav"></div>
+  </div>
+
+  <!-- PAGE: COMPARE (was Missing) -->
+  <div id="pageMissing" class="page">
+
+    <!-- NORMAL HASIL SECTION -->
+    <div id="normalHasilSection">
+      <div class="filter-bar">
+        <button class="filter-chip active" id="chip-all" onclick="setFilter('all')">Semua</button>
+        <button class="filter-chip" id="chip-missing" onclick="setFilter('missing')">Missing</button>
+        <button class="filter-chip" id="chip-plus" onclick="setFilter('plus')">Plus</button>
+        <button class="filter-chip" id="chip-minus" onclick="setFilter('minus')">Minus</button>
+        <button class="filter-chip" id="chip-sesuai" onclick="setFilter('sesuai')">Sesuai</button>
+      </div>
+      <div class="compare-header">
+        <div>Produk</div>
+        <div>Sistem</div>
+        <div>Fisik</div>
+        <div>Selisih</div>
+        <div>Status</div>
+      </div>
+      <div id="compareList"></div>
+      <div id="missingEmpty" class="empty" style="display:none;">Semua produk sudah dicek! 🎉</div>
+    </div>
+
+    <!-- SCANNER HASIL SECTION -->
+    <div id="scannerHasilSection" style="display:none;">
+      <!-- Banner + export -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(124,58,237,.1);border-bottom:1px solid rgba(124,58,237,.3);">
+        <div class="imei-mode-dot"></div>
+        <div style="font-family:var(--mono);font-size:9px;color:#a78bfa;letter-spacing:2px;text-transform:uppercase;flex:1;">Mode Scanner — Hasil IMEI</div>
+        <button class="btn-secondary" style="font-size:10px;padding:4px 10px;border-color:rgba(124,58,237,.5);color:#a78bfa;" onclick="exportImeiXLSXDetailed()">&#8595; EXPORT</button>
+      </div>
+
+      <!-- Dashboard Stats IMEI (6 sel) -->
+      <div id="imeiDashboard" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e0e0e0;">
+        <div style="background:var(--surface);padding:10px 8px;text-align:center;">
+          <div style="font-family:var(--cond);font-weight:900;font-size:clamp(20px,6vw,28px);color:var(--accent);line-height:1;" id="dash-terscan">0</div>
+          <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-top:3px;">Terscan</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 8px;text-align:center;">
+          <div style="font-family:var(--cond);font-weight:900;font-size:clamp(20px,6vw,28px);color:var(--plus);line-height:1;" id="dash-adaDB">0</div>
+          <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-top:3px;">Terdaftar</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 8px;text-align:center;">
+          <div style="font-family:var(--cond);font-weight:900;font-size:clamp(20px,6vw,28px);color:var(--minus);line-height:1;" id="dash-tidakDB">0</div>
+          <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-top:3px;">Tdk Terdaftar</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 8px;text-align:center;">
+          <div style="font-family:var(--cond);font-weight:900;font-size:clamp(20px,6vw,28px);color:#6d4aff;line-height:1;" id="dash-totalDB">0</div>
+          <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-top:3px;">Total DB</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 8px;text-align:center;">
+          <div style="font-family:var(--cond);font-weight:900;font-size:clamp(20px,6vw,28px);color:var(--minus);line-height:1;" id="dash-belumScan">0</div>
+          <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-top:3px;">Blm Scan</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 8px;text-align:center;">
+          <div style="font-family:var(--cond);font-weight:900;font-size:clamp(20px,6vw,28px);color:var(--text2);line-height:1;" id="dash-progress">0%</div>
+          <div style="font-family:var(--mono);font-size:clamp(5px,1.6vw,7px);letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-top:3px;">Progress</div>
+        </div>
+      </div>
+      <!-- Progress bar -->
+      <div style="height:3px;background:rgba(124,58,237,.15);">
+        <div id="imeiProgressBar" style="height:100%;background:#7c3aed;width:0%;transition:width .4s;"></div>
+      </div>
+
+      <!-- Sub-tab switcher: 3 tabs -->
+      <div style="display:flex;border-bottom:1px solid rgba(124,58,237,.3);background:var(--surface);">
+        <div id="shtab0" onclick="switchSHTab(0)" style="flex:1;padding:9px 4px;text-align:center;font-family:var(--cond);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid #7c3aed;color:#a78bfa;">📡 SCAN</div>
+        <div id="shtab1" onclick="switchSHTab(1)" style="flex:1;padding:9px 4px;text-align:center;font-family:var(--cond);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);">⚖ COMPARE</div>
+        <div id="shtab2" onclick="switchSHTab(2)" style="flex:1;padding:9px 4px;text-align:center;font-family:var(--cond);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);">🔍 BLM SCAN</div>
+      </div>
+
+      <!-- SH Panel 0: Detail scan per IMEI -->
+      <div id="shpanel0">
+        <div class="filter-bar" style="border-bottom:1px solid rgba(124,58,237,.2);">
+          <div id="scannerFilterBar" style="display:contents;"></div>
+        </div>
+        <!-- mini stats row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(124,58,237,.2);">
+          <div style="background:var(--surface);padding:10px 8px;text-align:center;border-right:1px solid var(--border);">
+            <div style="font-family:var(--cond);font-weight:900;font-size:20px;color:#a78bfa;" id="sh-total">0</div>
+            <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:#7c3aed;text-transform:uppercase;margin-top:2px;">Total Scan</div>
+          </div>
+          <div style="background:var(--surface);padding:10px 8px;text-align:center;border-right:1px solid var(--border);">
+            <div style="font-family:var(--cond);font-weight:900;font-size:20px;color:#22c55e;" id="sh-found">0</div>
+            <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:#16a34a;text-transform:uppercase;margin-top:2px;">Terverifikasi</div>
+          </div>
+          <div style="background:var(--surface);padding:10px 8px;text-align:center;border-right:1px solid var(--border);">
+            <div style="font-family:var(--cond);font-weight:900;font-size:20px;color:var(--minus);" id="sh-notfound">0</div>
+            <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--minus);text-transform:uppercase;margin-top:2px;">Tdk Terdaftar</div>
+          </div>
+        </div>
+        <div id="scannerHasilCards"></div>
+        <div id="scannerHasilEmpty" class="empty">Belum ada IMEI terscan.</div>
+      </div>
+
+      <!-- SH Panel 1: Compare by IMEI -->
+      <div id="shpanel1" style="display:none;">
+        <!-- Summary strip per-IMEI -->
+        <div id="cmpSummaryStrip" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(124,58,237,.25);"></div>
+        <!-- Compare header -->
+        <div style="display:grid;grid-template-columns:1fr 72px;gap:3px;padding:7px 12px;background:rgba(124,58,237,.15);border-bottom:1px solid rgba(124,58,237,.3);position:sticky;top:50px;z-index:50;">
+          <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7c3aed;text-transform:uppercase;">IMEI / Produk</div>
+          <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7c3aed;text-transform:uppercase;text-align:center;">Status</div>
+        </div>
+        <!-- Filter chips (dinamis dari data) -->
+        <div class="filter-bar" id="cmpFilterBar" style="border-bottom:1px solid rgba(124,58,237,.2);overflow-x:auto;flex-wrap:nowrap;"></div>
+        <div id="scannerCompareList"></div>
+        <div id="scannerCompareEmpty" class="empty" style="display:none;font-size:10px;">Tidak ada data untuk filter ini.</div>
+      </div>
+
+      <!-- SH Panel 2: IMEI Belum Scan -->
+      <div id="shpanel2" style="display:none;">
+        <!-- Summary -->
+        <div style="padding:10px 14px;background:rgba(239,68,68,.06);border-bottom:1px solid rgba(239,68,68,.2);display:flex;align-items:center;gap:10px;">
+          <div>
+            <div style="font-family:var(--cond);font-weight:900;font-size:26px;color:var(--minus);line-height:1;" id="blmScanCount">0</div>
+            <div style="font-family:var(--mono);font-size:7px;color:#9e2020;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">IMEI Belum Scan</div>
+          </div>
+          <div style="flex:1;"></div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--cond);font-weight:900;font-size:18px;color:var(--accent);line-height:1;" id="blmScanProdCount">0</div>
+            <div style="font-family:var(--mono);font-size:7px;color:#9a7d20;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Produk Terdampak</div>
+          </div>
+        </div>
+        <!-- Filter by product for belum scan -->
+        <div class="filter-bar" id="blmScanProdFilter" style="border-bottom:1px solid rgba(239,68,68,.15);"></div>
+        <div id="blmScanList"></div>
+        <div id="blmScanEmpty" class="empty" style="display:none;">🎉 Semua IMEI di database sudah terscan!</div>
+      </div>
+    </div>
+
+    <div class="spacer-nav"></div>
+  </div>
+
+  <!-- PAGE: MASTER -->
+  <div id="pageMaster" class="page">
+
+    <!-- NORMAL MASTER SECTION -->
+    <div id="normalMasterSection">
+    <!-- Master Tab Switcher -->
+    <div style="display:flex;border-bottom:1px solid var(--border);background:var(--surface);">
+      <div id="mtab0" onclick="switchMTab(0)" style="flex:1;padding:11px 6px;text-align:center;font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent);">📂 UPLOAD</div>
+      <div id="mtab1" onclick="switchMTab(1)" style="flex:1;padding:11px 6px;text-align:center;font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);">📋 COPAS</div>
+      <div id="mtab2" onclick="switchMTab(2)" style="flex:1;padding:11px 6px;text-align:center;font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);">✏ MANUAL</div>
+    </div>
+
+    <!-- PANEL 0: UPLOAD FILE -->
+    <div id="mpanel0">
+      <div class="section">
+        <div class="section-title">Upload File Excel / CSV</div>
+        <label for="xlsxFileInput" id="xlsxDropzone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--accent);padding:28px 16px;text-align:center;cursor:pointer;background:var(--surface2);">
+          <div style="font-size:32px;">📂</div>
+          <div style="font-family:var(--cond);font-weight:800;font-size:15px;letter-spacing:1px;color:var(--accent);">TAP UNTUK PILIH FILE</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2);">Format: .xlsx .xls .csv</div>
+          <input type="file" id="xlsxFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleXlsxUpload(this)">
+        </label>
+        <div id="xlsxInfo" style="display:none;background:var(--surface2);border:1px solid var(--border);padding:12px;">
+          <div id="xlsxInfoText" style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:10px;"></div>
+          <div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Pilih kolom:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+            <div>
+              <div style="font-family:var(--mono);font-size:8px;color:var(--text2);margin-bottom:4px;">KODE</div>
+              <select id="mapCode" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:7px 4px;outline:none;border-radius:0;"></select>
+            </div>
+            <div>
+              <div style="font-family:var(--mono);font-size:8px;color:var(--text2);margin-bottom:4px;">NAMA</div>
+              <select id="mapName" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:7px 4px;outline:none;border-radius:0;"></select>
+            </div>
+            <div>
+              <div style="font-family:var(--mono);font-size:8px;color:var(--text2);margin-bottom:4px;">QTY</div>
+              <select id="mapQty" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:7px 4px;outline:none;border-radius:0;"></select>
+            </div>
+          </div>
+          <div id="xlsxPreviewRows" style="font-family:var(--mono);font-size:9px;color:var(--text2);margin-bottom:10px;line-height:1.9;"></div>
+          <button class="btn-submit" style="width:100%;font-size:14px;" onclick="importFromXlsx()">⬇ IMPORT KE MASTER</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 1: PASTE DATA -->
+    <div id="mpanel1" style="display:none;">
+      <div class="section">
+        <div class="section-title">Copas dari Excel / Spreadsheet</div>
+        <div style="background:var(--surface2);border:1px solid var(--border);padding:10px 12px;font-family:var(--mono);font-size:9px;color:var(--text3);line-height:2;">
+          Pilih data di Excel → Ctrl+C → Paste di sini.<br>
+          Kolom: <span style="color:var(--accent)">Kode</span> | <span style="color:var(--accent)">Nama</span> | <span style="color:var(--accent)">Qty Sistem</span><br>
+          Header akan diabaikan otomatis.
+        </div>
+        <textarea id="masterPaste" style="width:100%;min-height:140px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 12px;outline:none;resize:vertical;line-height:1.7;border-radius:0;" placeholder="Paste data di sini...&#10;SKU&#9;NAMA&#9;QTY&#10;..."></textarea>
+        <div id="pastePreview" style="font-family:var(--mono);font-size:9px;color:var(--text2);min-height:14px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-submit" style="flex:1;" onclick="importFromPaste()">⬇ IMPORT KE MASTER</button>
+          <button class="btn-secondary" onclick="document.getElementById('masterPaste').value='';document.getElementById('pastePreview').textContent='';">BERSIHKAN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: MANUAL -->
+    <div id="mpanel2" style="display:none;">
+      <div class="section">
+        <div class="section-title">Tambah Manual</div>
+        <div class="master-fields">
+          <div class="field-wrap">
+            <div class="field-label">Kode Produk</div>
+            <input class="inp" id="mCode" type="text" placeholder="SKU" autocomplete="off" autocapitalize="characters">
+          </div>
+          <div class="field-wrap">
+            <div class="field-label">Nama Produk</div>
+            <input class="inp" id="mName" type="text" placeholder="NAME" autocomplete="off">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:flex-end;">
+          <div class="field-wrap">
+            <div class="field-label">Qty Sistem</div>
+            <input class="inp" id="mQty" type="number" placeholder="0" min="0" inputmode="numeric">
+          </div>
+          <button class="btn-submit" onclick="addMasterRow()" style="height:44px;padding:0 18px;">+ TAMBAH</button>
+        </div>
+        <div class="master-pending" id="masterPending">
+          <div class="pending-header">
+            <span>Antrian (<span id="pendingCount">0</span>)</span>
+            <span style="cursor:pointer;color:var(--minus)" onclick="clearPending()">Kosongkan</span>
+          </div>
+          <div class="pending-empty" id="pendingEmpty">Belum ada produk.</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-submit" style="flex:1" onclick="saveMasterFromQueue()">SIMPAN KE MASTER</button>
+          <button class="btn-secondary" onclick="clearMaster()">RESET</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section" style="padding-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="section-title">Master Data (<span id="masterCount">0</span>)</div>
+        <button class="btn-danger" style="font-size:10px;padding:5px 10px;" onclick="clearMaster()">HAPUS SEMUA</button>
+      </div>
+    </div>
+    <div class="master-cards" id="masterCards"></div>
+    <div id="masterEmpty" class="empty">Belum ada master data.</div>
+    <div class="spacer-nav"></div>
+    </div><!-- end normalMasterSection -->
+
+    <!-- SCANNER MASTER SECTION -->
+    <div id="scannerMasterSection" style="display:none;">
+      <!-- Scanner mode banner -->
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(124,58,237,.1);border-bottom:1px solid rgba(124,58,237,.3);">
+        <div class="imei-mode-dot"></div>
+        <div style="font-family:var(--mono);font-size:9px;color:#a78bfa;letter-spacing:2px;text-transform:uppercase;flex:1;">Mode Scanner — Master Data IMEI</div>
+        <div style="font-family:var(--cond);font-weight:800;font-size:13px;color:#a78bfa;" id="scannerMasterCount">0 IMEI</div>
+      </div>
+
+      <!-- Scanner Master Tab Switcher -->
+      <div style="display:flex;border-bottom:1px solid rgba(124,58,237,.3);background:var(--surface);">
+        <div id="smtab0" onclick="switchSMTab(0)" style="flex:1;padding:10px 6px;text-align:center;font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid #7c3aed;color:#a78bfa;">📂 UPLOAD</div>
+        <div id="smtab1" onclick="switchSMTab(1)" style="flex:1;padding:10px 6px;text-align:center;font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);">✏ MANUAL</div>
+        <div id="smtab2" onclick="switchSMTab(2)" style="flex:1;padding:10px 6px;text-align:center;font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);">📋 DAFTAR</div>
+      </div>
+
+      <!-- SM Panel 0: Upload IMEI DB -->
+      <div id="smpanel0">
+        <div class="section" style="gap:8px;">
+          <div class="section-title" style="color:#7c3aed;">Upload File Master IMEI</div>
+          <label for="imeiMasterUploadFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed rgba(124,58,237,.5);padding:24px 16px;text-align:center;cursor:pointer;background:rgba(124,58,237,.06);">
+            <div style="font-size:28px;">📡</div>
+            <div style="font-family:var(--cond);font-weight:800;font-size:14px;letter-spacing:1px;color:#a78bfa;">TAP PILIH FILE IMEI</div>
+            <div style="font-family:var(--mono);font-size:9px;color:#7c3aed;">Format: .xlsx .xls .csv</div>
+            <input type="file" id="imeiMasterUploadFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importImeiFromXlsx(this)">
+          </label>
+          <div id="imeiImportInfo" style="display:none;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);padding:10px 14px;">
+            <div style="font-family:var(--mono);font-size:9px;color:#a78bfa;margin-bottom:8px;" id="imeiImportInfoText"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
+              <div>
+                <div style="font-family:var(--mono);font-size:8px;color:#7c3aed;margin-bottom:3px;">KODE PRODUK</div>
+                <select id="imeiMapCode" style="width:100%;background:var(--bg);border:1px solid rgba(124,58,237,.4);color:#a78bfa;font-family:var(--mono);font-size:9px;padding:6px 4px;outline:none;border-radius:0;"></select>
+              </div>
+              <div>
+                <div style="font-family:var(--mono);font-size:8px;color:#7c3aed;margin-bottom:3px;">NAMA PRODUK</div>
+                <select id="imeiMapName" style="width:100%;background:var(--bg);border:1px solid rgba(124,58,237,.4);color:#a78bfa;font-family:var(--mono);font-size:9px;padding:6px 4px;outline:none;border-radius:0;"></select>
+              </div>
+              <div>
+                <div style="font-family:var(--mono);font-size:8px;color:#7c3aed;margin-bottom:3px;">IMEI</div>
+                <select id="imeiMapImei" style="width:100%;background:var(--bg);border:1px solid rgba(124,58,237,.4);color:#a78bfa;font-family:var(--mono);font-size:9px;padding:6px 4px;outline:none;border-radius:0;"></select>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+              <div>
+                <div style="font-family:var(--mono);font-size:8px;color:#7c3aed;margin-bottom:3px;">STATUS (opsional)</div>
+                <select id="imeiMapStatus" style="width:100%;background:var(--bg);border:1px solid rgba(124,58,237,.4);color:#a78bfa;font-family:var(--mono);font-size:9px;padding:6px 4px;outline:none;border-radius:0;"></select>
+              </div>
+              <div>
+                <div style="font-family:var(--mono);font-size:8px;color:#7c3aed;margin-bottom:3px;">KATEGORI (opsional)</div>
+                <select id="imeiMapCategory" style="width:100%;background:var(--bg);border:1px solid rgba(124,58,237,.4);color:#a78bfa;font-family:var(--mono);font-size:9px;padding:6px 4px;outline:none;border-radius:0;"></select>
+              </div>
+            </div>
+            <button class="btn-submit" style="width:100%;font-size:12px;padding:7px;background:#7c3aed;border-color:#7c3aed;margin-bottom:8px;" onclick="doImportImeiData()">&#8679; IMPORT KE DB</button>
+            <div id="imeiImportPreview" style="font-family:var(--mono);font-size:9px;color:#7c3aed;line-height:1.8;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SM Panel 1: Manual add IMEI to DB -->
+      <div id="smpanel1" style="display:none;">
+        <div class="section" style="gap:8px;">
+          <div class="section-title" style="color:#7c3aed;">Tambah IMEI Manual ke DB</div>
+          <div class="field-wrap">
+            <div class="field-label" style="color:#7c3aed;">IMEI / Nomor Serial</div>
+            <input class="inp imei-inp" id="smImei" type="text" placeholder="Scan atau ketik IMEI..." autocomplete="off" autocapitalize="none" autocorrect="off" style="font-size:15px;text-align:left;letter-spacing:1px;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;">
+            <div class="field-wrap">
+              <div class="field-label" style="color:#7c3aed;">Kode Produk</div>
+              <input class="inp" id="smCode" type="text" placeholder="SKU" autocomplete="off" autocapitalize="characters" style="border-color:rgba(124,58,237,.4);">
+            </div>
+            <div class="field-wrap">
+              <div class="field-label" style="color:#7c3aed;">Nama Produk</div>
+              <input class="inp" id="smName" type="text" placeholder="Nama produk..." autocomplete="off" style="border-color:rgba(124,58,237,.4);">
+            </div>
+          </div>
+          <div>
+            <div class="field-label" style="color:#7c3aed;margin-bottom:6px;">Status Kondisi</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="imei-status-chip selected" id="smStatus-NEW" onclick="selectSmStatus('NEW')">NEW</button>
+              <button class="imei-status-chip" id="smStatus-SHOW" onclick="selectSmStatus('SHOW')">SHOW</button>
+              <button class="imei-status-chip" id="smStatus-DISPLAY" onclick="selectSmStatus('DISPLAY')">DISPLAY</button>
+              <button class="imei-status-chip" id="smStatus-ERROR" onclick="selectSmStatus('ERROR')">ERROR</button>
+              <button class="imei-status-chip" id="smStatus-REFURB" onclick="selectSmStatus('REFURB')">REFURB</button>
+              <button class="imei-status-chip" id="smStatus-DAMAGED" onclick="selectSmStatus('DAMAGED')">DAMAGED</button>
+              <button class="imei-status-chip" id="smStatus-OTHER" onclick="selectSmStatus('OTHER')">OTHER</button>
+            </div>
+          </div>
+          <button class="btn-submit" onclick="addImeiToMasterDB()" style="width:100%;background:#7c3aed;border-color:#7c3aed;font-size:15px;">+ TAMBAH KE MASTER DB</button>
+        </div>
+        <div class="divider"></div>
+        <div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center;">
+          <div class="section-title" style="color:#7c3aed;">Antrian Tambah (<span id="smQueueCount">0</span>)</div>
+          <button class="btn-secondary" style="font-size:10px;padding:4px 10px;border-color:rgba(124,58,237,.4);color:#a78bfa;" onclick="clearSmQueue()">Kosongkan</button>
+        </div>
+        <div id="smQueueList" style="max-height:200px;overflow-y:auto;"></div>
+        <div id="smQueueEmpty" class="empty" style="padding:16px;font-size:10px;">Antrian kosong.</div>
+      </div>
+
+      <!-- SM Panel 2: Daftar IMEI DB -->
+      <div id="smpanel2" style="display:none;">
+        <div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(124,58,237,.2);">
+          <div class="section-title" style="color:#7c3aed;">Database IMEI (<span id="imeiDbListCount">0</span>)</div>
+          <button class="btn-danger" style="font-size:10px;padding:4px 10px;" onclick="clearImeiDB()">HAPUS SEMUA</button>
+        </div>
+        <div id="imeiDbCards"></div>
+        <div id="imeiDbEmpty" class="empty" style="font-size:10px;">Database IMEI kosong.</div>
+      </div>
+
+      <div class="spacer-nav"></div>
+    </div><!-- end scannerMasterSection -->
+
+  </div><!-- end pageMaster -->
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-btn active" id="nav0" onclick="switchPage(0)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <div class="nav-label">Input</div>
+    </button>
+    <button class="nav-btn" id="nav1" onclick="switchPage(1)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <div class="nav-label">Hasil</div>
+    </button>
+    <button class="nav-btn" id="nav2" onclick="switchPage(2)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <div class="nav-label">Master</div>
+    </button>
+  </div>
+</div>
+
+<!-- Variant Modal -->
+<div id="variantModal" onclick="handleModalBackdropClick(event)">
+  <div class="variant-sheet" id="variantSheet">
+    <div class="variant-handle"></div>
+    <div class="variant-header">
+      <div>
+        <div class="variant-title">Pilih Variant</div>
+        <div class="variant-subtitle" id="variantSubtitle">0 hasil ditemukan</div>
+      </div>
+      <button class="icon-btn" onclick="closeVariantModal()">✕</button>
+    </div>
+    <div class="variant-list-wrap" id="variantList"></div>
+  </div>
+</div>
+
+<!-- Custom Confirm Modal -->
+<div id="confirmModal" onclick="handleConfirmBackdrop(event)">
+  <div class="confirm-box" id="confirmBox">
+    <div class="confirm-title" id="confirmTitle">Konfirmasi</div>
+    <div class="confirm-msg" id="confirmMsg">Apakah Anda yakin?</div>
+    <div class="confirm-actions">
+      <button class="confirm-no" onclick="closeConfirm()">BATAL</button>
+      <button class="confirm-yes" id="confirmYesBtn">YA, RESET</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────
+let productDB = [];
+let soData = {};
+let lastAction = null;
+let pendingVariants = null;
+let currentFilter = 'all';
+
+// ─── IMEI STATE ───────────────────────────────────────
+let imeiData = []; // [{productCode, productName, imei, status, fromDB, ts}]
+let imeiDB = {};   // lookup map: imei -> {productCode, productName, status}
+let currentImeiStatus = 'NEW';
+let selectedImeiVariant = null;
+let currentSoMode = 'normal';
+
+
+
+// ─── STORAGE ─────────────────────────────────────────
+const save = () => {
+  localStorage.setItem('productDB', JSON.stringify(productDB));
+  localStorage.setItem('soData', JSON.stringify(soData));
+  localStorage.setItem('imeiData', JSON.stringify(imeiData));
+  localStorage.setItem('imeiDB', JSON.stringify(imeiDB));
+};
+const load = () => {
+  try { productDB = JSON.parse(localStorage.getItem('productDB')) || []; } catch { productDB = []; }
+  try { soData = JSON.parse(localStorage.getItem('soData')) || {}; } catch { soData = {}; }
+  try { imeiData = JSON.parse(localStorage.getItem('imeiData')) || []; } catch { imeiData = []; }
+  try { imeiDB = JSON.parse(localStorage.getItem('imeiDB')) || {}; } catch { imeiDB = {}; }
+};
+
+// ─── CONFIRM MODAL ────────────────────────────────────
+let confirmCallback = null;
+function showConfirm(title, msg, yesLabel, cb) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmYesBtn').textContent = yesLabel || 'YA';
+  confirmCallback = cb;
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmModal').classList.remove('open');
+  confirmCallback = null;
+}
+document.getElementById('confirmYesBtn').addEventListener('click', () => {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+});
+function handleConfirmBackdrop(e) {
+  if (e.target === document.getElementById('confirmModal')) closeConfirm();
+}
+
+// ─── RESET HASIL ──────────────────────────────────────
+function confirmResetHasil() {
+  if (Object.keys(soData).length === 0) { showToast('⚠ Belum ada data hasil'); return; }
+  showConfirm(
+    'Reset Hasil?',
+    `Semua ${Object.keys(soData).length} data hasil input akan dihapus. Master data tidak terpengaruh.`,
+    'YA, RESET',
+    () => {
+      lastAction = null;
+      soData = {};
+      save();
+      renderAll();
+      showToast('🗑 Semua hasil berhasil direset');
+    }
+  );
+}
+
+// ─── LOGIN ────────────────────────────────────────────
+function doLogin() {
+  const id = document.getElementById('loginId').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  if (id === 'id.rizki18' && pw === '5z6kidpw') {
+    localStorage.setItem('loggedIn', '1');
+    showApp();
+  } else {
+    document.getElementById('loginErr').textContent = 'ID atau password salah.';
+  }
+}
+document.getElementById('loginId').addEventListener('keydown', e => e.key === 'Enter' && doLogin());
+document.getElementById('loginPw').addEventListener('keydown', e => e.key === 'Enter' && doLogin());
+
+function doLogout() {
+  localStorage.removeItem('loggedIn');
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ─── AUTO LOGOUT SAAT TIDAK AKTIF (5 menit) ──────────
+const AUTO_LOGOUT_MS = 5 * 60 * 1000;
+let _autoLogoutTimer = null;
+
+function resetAutoLogout() {
+  clearTimeout(_autoLogoutTimer);
+  if (localStorage.getItem('loggedIn') !== '1') return;
+  _autoLogoutTimer = setTimeout(() => {
+    save(); // pastikan data tersimpan dulu
+    localStorage.removeItem('loggedIn');
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    showToast('🔒 Sesi berakhir — silakan login kembali');
+  }, AUTO_LOGOUT_MS);
+}
+
+['touchstart','touchend','mousemove','keydown','click','scroll'].forEach(evt => {
+  document.addEventListener(evt, resetAutoLogout, { passive: true });
+});
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('app').style.flexDirection = 'column';
+  load();
+  renderAll();
+  updateImeiDbCount();
+  resetAutoLogout();
+}
+
+if (localStorage.getItem('loggedIn') === '1') showApp();
+window.addEventListener('beforeunload', () => save());
+
+// Swipe down to close variant modal
+(function() {
+  let startY = 0;
+  document.addEventListener('touchstart', e => {
+    if (document.getElementById('variantModal').classList.contains('open'))
+      startY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (document.getElementById('variantModal').classList.contains('open')) {
+      if (e.changedTouches[0].clientY - startY > 80) closeVariantModal();
+    }
+  }, { passive: true });
+})();
+
+// ─── PAGES ───────────────────────────────────────────
+const pages = ['pageInput', 'pageMissing', 'pageMaster'];
+function switchPage(i) {
+  pages.forEach((p, j) => {
+    document.getElementById(p).classList.toggle('active', i === j);
+    document.getElementById('nav' + j).classList.toggle('active', i === j);
+  });
+  if (i === 1) {
+    if (currentSoMode === 'imei') renderScannerHasil();
+    else renderCompare();
+  }
+  if (i === 2) {
+    if (currentSoMode === 'imei') renderScannerMaster();
+    else renderMaster();
+  }
+}
+
+// ─── FILTER ──────────────────────────────────────────
+function setFilter(f) {
+  currentFilter = f;
+  ['all','missing','plus','minus','sesuai'].forEach(k => {
+    document.getElementById('chip-' + k).classList.toggle('active', k === f);
+  });
+  renderCompare();
+}
+
+// ─── SEARCH ──────────────────────────────────────────
+function searchMaster(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return productDB.filter(p =>
+    p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  );
+}
+
+function openVariantModal(matches) {
+  pendingVariants = matches;
+  document.getElementById('variantSubtitle').textContent = matches.length + ' hasil ditemukan';
+  document.getElementById('variantList').innerHTML = matches.map((m, i) => `
+    <div class="variant-item" onclick="pickVariant(${i})">
+      <div class="variant-item-dot"></div>
+      <div class="variant-item-body">
+        <div class="variant-code">${escHtml(m.code)}</div>
+        <div class="variant-name">${escHtml(m.name)}</div>
+        <div class="variant-qty">Sistem: ${m.sysQty}</div>
+      </div>
+      <div class="variant-arrow">›</div>
+    </div>
+  `).join('');
+  document.getElementById('variantModal').classList.add('open');
+  document.activeElement && document.activeElement.blur();
+}
+
+function closeVariantModal() {
+  document.getElementById('variantModal').classList.remove('open');
+  pendingVariants = null;
+}
+
+function handleModalBackdropClick(e) {
+  if (e.target === document.getElementById('variantModal')) closeVariantModal();
+}
+
+let selectedVariant = null;
+function pickVariant(i) {
+  selectedVariant = pendingVariants[i];
+  closeVariantModal();
+  document.getElementById('inpCode').value = selectedVariant.name;
+  document.getElementById('svName').textContent = selectedVariant.name;
+  document.getElementById('svCode').textContent = selectedVariant.code;
+  document.getElementById('selectedVariantPreview').style.display = 'block';
+  var icon = document.getElementById('inpCodeIcon');
+  icon.textContent = '\u2713';
+  icon.style.color = 'var(--plus)';
+  icon.style.display = 'block';
+  var wrap = document.getElementById('qtyFieldWrap');
+  if (wrap) { wrap.style.display = 'flex'; qtyFieldVisible = true; }
+  hideAutocomplete();
+  setTimeout(function(){ var q = document.getElementById('inpQty'); q.focus(); q.select(); }, 80);
+  showToast('\u2714 ' + selectedVariant.name);
+}
+
+function clearSelectedVariant() {
+  selectedVariant = null;
+  document.getElementById('selectedVariantPreview').style.display = 'none';
+  var icon = document.getElementById('inpCodeIcon');
+  if (icon) { icon.style.display = 'none'; icon.textContent = ''; }
+  // Hide qty field juga
+  var wrap = document.getElementById('qtyFieldWrap');
+  if (wrap) { wrap.style.display = 'none'; qtyFieldVisible = false; }
+  document.getElementById('inpQty').value = '';
+  hideAutocomplete();
+}
+
+// ─── SUBMIT INPUT ─────────────────────────────────────
+function submitInput() {
+  const codeRaw = document.getElementById('inpCode').value.trim();
+  const qtyEl = document.getElementById('inpQty');
+  const qty = (qtyFieldVisible && qtyEl.value !== '') ? (parseInt(qtyEl.value) || 1) : 1;
+  if (!codeRaw) { showToast('⚠ Masukkan kode atau nama produk'); return; }
+
+  let match = null;
+  if (selectedVariant) {
+    match = selectedVariant;
+  } else {
+    const matches = searchMaster(codeRaw);
+    if (matches.length > 1) { openVariantModal(matches); return; }
+    else if (matches.length === 1) match = matches[0];
+  }
+
+  let key, entryCode, entryName, entrySysQty;
+  if (match) {
+    key = match.code + '|' + match.name;
+    entryCode = match.code;
+    entryName = match.name;
+    entrySysQty = match.sysQty;
+  } else {
+    key = '__new__' + codeRaw;
+    entryCode = codeRaw;
+    entryName = codeRaw;
+    entrySysQty = 0;
+  }
+
+  lastAction = { key, prev: soData[key] ? {...soData[key]} : null };
+  if (soData[key]) soData[key].physQty += qty;
+  else soData[key] = { code: entryCode, name: entryName, sysQty: entrySysQty, physQty: qty };
+
+  save(); renderResults(); renderStats();
+  document.getElementById('inpCode').value = '';
+  document.getElementById('inpQty').value = '';
+  clearSelectedVariant();
+  document.activeElement && document.activeElement.blur();
+  showToast('✔ ' + entryName + ' +' + qty);
+}
+
+document.getElementById('inpCode').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (selectedVariant) { document.getElementById('inpQty').focus(); }
+    else {
+      const matches = searchMaster(e.target.value.trim());
+      if (matches.length > 1) openVariantModal(matches);
+      else if (qtyFieldVisible) document.getElementById('inpQty').focus();
+      else submitInput();
+    }
+  }
+});
+document.getElementById('inpQty').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitInput();
+});
+document.getElementById('inpCode').addEventListener('input', function() {
+  if (selectedVariant) clearSelectedVariant();
+  var q = this.value.trim();
+  var icon = document.getElementById('inpCodeIcon');
+  icon.style.display = 'none';
+  if (q.length < 1) { hideAutocomplete(); return; }
+  var matches = searchMaster(q);
+  if (matches.length === 0) {
+    showAutocomplete([], q);
+  } else {
+    showAutocomplete(matches, q);
+  }
+});
+
+document.getElementById('inpCode').addEventListener('blur', function() {
+  setTimeout(hideAutocomplete, 180);
+});
+document.getElementById('inpCode').addEventListener('focus', function() {
+  var q = this.value.trim();
+  if (q.length > 0 && !selectedVariant) {
+    showAutocomplete(searchMaster(q), q);
+  }
+});
+
+function highlight(text, query) {
+  if (!query) return escHtml(text);
+  var idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return escHtml(text);
+  return escHtml(text.slice(0, idx))
+    + '<mark class="ac-item-mark">' + escHtml(text.slice(idx, idx + query.length)) + '</mark>'
+    + escHtml(text.slice(idx + query.length));
+}
+
+function showAutocomplete(matches, q) {
+  var drop = document.getElementById('autocompleteDropdown');
+  if (matches.length === 0) {
+    drop.innerHTML = '<div class="ac-empty">Produk tidak ditemukan</div>';
+    drop.style.display = 'block';
+    // Tanda merah — tidak valid
+    var icon = document.getElementById('inpCodeIcon');
+    icon.textContent = '✗';
+    icon.style.color = 'var(--minus)';
+    icon.style.display = 'block';
+    return;
+  }
+  // Sembunyikan icon saat mengetik (belum dipilih)
+  document.getElementById('inpCodeIcon').style.display = 'none';
+  drop.innerHTML = matches.slice(0, 8).map(function(m, i) {
+    return '<div class="ac-item" onmousedown="pickVariantAC(' + i + ')" data-idx="' + i + '">'
+      + '<div class="ac-item-name">' + highlight(m.name, q) + '</div>'
+      + '<div class="ac-item-code">' + highlight(m.code, q) + '</div>'
+      + '</div>';
+  }).join('');
+  drop.style.display = 'block';
+  window._acMatches = matches;
+}
+
+function hideAutocomplete() {
+  var drop = document.getElementById('autocompleteDropdown');
+  if (drop) drop.style.display = 'none';
+}
+
+function pickVariantAC(i) {
+  var m = (window._acMatches || [])[i];
+  if (!m) return;
+  // Cek apakah produk punya variants (>1 match dengan code sama)
+  var sameCode = (window._acMatches || []).filter(function(x){ return x.code === m.code; });
+  if (sameCode.length > 1) {
+    pendingVariants = sameCode;
+    openVariantModal(sameCode);
+  } else {
+    pickVariantDirect(m);
+  }
+  hideAutocomplete();
+}
+
+function pickVariantDirect(m) {
+  selectedVariant = m;
+  document.getElementById('inpCode').value = m.name;
+  document.getElementById('svName').textContent = m.name;
+  document.getElementById('svCode').textContent = m.code;
+  document.getElementById('selectedVariantPreview').style.display = 'block';
+  var icon = document.getElementById('inpCodeIcon');
+  icon.textContent = '\u2713';
+  icon.style.color = 'var(--plus)';
+  icon.style.display = 'block';
+  var wrap = document.getElementById('qtyFieldWrap');
+  if (wrap) { wrap.style.display = 'flex'; qtyFieldVisible = true; }
+  setTimeout(function(){ var q = document.getElementById('inpQty'); q.focus(); q.select(); }, 80);
+}
+
+// ─── TOGGLE QTY FIELD ───────────────────────────────────
+let qtyFieldVisible = false;
+function toggleQtyField() {
+  qtyFieldVisible = !qtyFieldVisible;
+  const wrap = document.getElementById('qtyFieldWrap');
+  const btn = document.getElementById('toggleQtyBtn');
+  wrap.style.display = qtyFieldVisible ? 'flex' : 'none';
+  btn.style.borderColor = qtyFieldVisible ? 'var(--accent)' : 'var(--border)';
+  btn.style.color = qtyFieldVisible ? 'var(--accent)' : '';
+  if (qtyFieldVisible) {
+    document.getElementById('inpQty').focus();
+    showToast('Qty Fisik aktif');
+  } else {
+    document.getElementById('inpQty').value = '';
+    showToast('Qty Fisik disembunyikan — default +1');
+  }
+}
+
+// ─── UNDO ─────────────────────────────────────────────
+function doUndo() {
+  if (!lastAction) { showToast('Tidak ada aksi untuk di-undo'); return; }
+  const { key, prev } = lastAction;
+  if (prev === null) delete soData[key];
+  else soData[key] = prev;
+  lastAction = null;
+  save(); renderAll();
+  showToast('↩ Undo berhasil');
+}
+
+// ─── SO MODE SWITCHER ────────────────────────────────
+function switchSoMode(mode) {
+  if (mode === currentSoMode) return;
+  const warningMsg = mode === 'imei'
+    ? 'Beralih ke mode IMEI Scanner?\nData input normal TIDAK akan hilang, tapi tampilan akan direset.'
+    : 'Beralih ke mode Normal?\nData IMEI yang sudah discan TIDAK akan hilang.';
+  showConfirm(
+    mode === 'imei' ? 'Aktifkan Mode IMEI?' : 'Kembali ke Mode Normal?',
+    warningMsg,
+    'YA, GANTI MODE',
+    () => {
+      currentSoMode = mode;
+      const appEl = document.getElementById('app');
+      if (mode === 'imei') {
+        appEl.classList.add('imei-mode-active');
+      } else {
+        appEl.classList.remove('imei-mode-active');
+      }
+      const normalSec = document.getElementById('normalInputSection');
+      const imeiSec = document.getElementById('imeiScanSection');
+      const resultsTable = document.getElementById('resultsTable');
+      const resultsCards = document.getElementById('resultsCards');
+      const resultsEmpty = document.getElementById('resultsEmpty');
+      const normalBtn = document.getElementById('modeNormalBtn');
+      const imeiBtn = document.getElementById('modeImeiBtn');
+      if (mode === 'imei') {
+        normalSec.style.display = 'none';
+        imeiSec.style.display = 'block';
+        resultsTable.style.display = 'none';
+        resultsCards.style.display = 'none';
+        resultsEmpty.style.display = 'none';
+        document.getElementById('statGrid').style.display = 'none';
+        normalBtn.classList.remove('active');
+        imeiBtn.classList.add('active');
+        imeiBtn.classList.add('imei-active');
+        // Show scanner sections on Hasil and Master pages
+        document.getElementById('normalHasilSection').style.display = 'none';
+        document.getElementById('scannerHasilSection').style.display = 'block';
+        document.getElementById('normalMasterSection').style.display = 'none';
+        document.getElementById('scannerMasterSection').style.display = 'block';
+        // Focus IMEI scan input
+        setTimeout(() => { document.getElementById('imeiInput').focus(); }, 100);
+        updateImeiDbCount();
+        renderImeiResults();
+        renderScannerHasil();
+        renderScannerMaster();
+      } else {
+        normalSec.style.display = 'block';
+        imeiSec.style.display = 'none';
+        resultsTable.style.display = 'none'; // pakai cards, bukan table
+        resultsCards.style.display = 'block';
+        document.getElementById('statGrid').style.display = 'grid';
+        normalBtn.classList.add('active');
+        imeiBtn.classList.remove('active');
+        imeiBtn.classList.remove('imei-active');
+        // Show normal sections
+        document.getElementById('normalHasilSection').style.display = 'block';
+        document.getElementById('scannerHasilSection').style.display = 'none';
+        document.getElementById('normalMasterSection').style.display = 'block';
+        document.getElementById('scannerMasterSection').style.display = 'none';
+        renderResults(); renderStats();
+        setTimeout(() => document.getElementById('inpCode').focus(), 100);
+      }
+      showToast(mode === 'imei' ? '📡 Mode IMEI aktif' : '📦 Mode Normal aktif');
+    }
+  );
+}
+
+// ─── IMEI DB COUNT UPDATE ────────────────────────────
+function updateImeiDbCount() {
+  const n = Object.keys(imeiDB).length;
+  const el = document.getElementById('imeiDbCount');
+  if (el) el.textContent = 'DB: ' + n + ' IMEI';
+  renderImeiDbStatusBreakdown();
+}
+
+// ─── IMEI SUBMIT — scan only, auto-lookup ────────────
+let imeiPendingVariants = null;
+function submitImei() {
+  const imeiRaw = document.getElementById('imeiInput').value.trim();
+  if (!imeiRaw) return;
+
+  // Duplicate check
+  if (imeiData.some(d => d.imei === imeiRaw)) {
+    showImeiLookup('dup', imeiRaw, null);
+    document.getElementById('imeiInput').value = '';
+    document.getElementById('imeiInput').focus();
+    showToast('⚠ IMEI sudah terscan: ' + imeiRaw);
+    return;
+  }
+
+  // Lookup in imeiDB
+  const ref = imeiDB[imeiRaw];
+  let entry;
+  if (ref) {
+    entry = { productCode: ref.productCode, productName: ref.productName, imei: imeiRaw, status: ref.status, fromDB: true, ts: Date.now() };
+    showImeiLookup('found', imeiRaw, ref);
+  } else {
+    entry = { productCode: '', productName: '', imei: imeiRaw, status: 'OTHER', fromDB: false, ts: Date.now() };
+    showImeiLookup('notfound', imeiRaw, null);
+  }
+
+  imeiData.push(entry);
+  lastImeiAction = { removed: entry };
+  save();
+  renderImeiResults();
+  if (currentSoMode === 'imei') renderScannerHasil();
+  renderStats();
+  document.getElementById('imeiInput').value = '';
+  document.getElementById('imeiInput').focus();
+  showToast(ref ? '✔ ' + ref.productName.slice(0, 30) : '⚠ IMEI tidak dikenal — disimpan');
+}
+
+function showImeiLookup(type, imei, ref) {
+  const panel = document.getElementById('imeiLookupResult');
+  const found = document.getElementById('imeiLookupFound');
+  const notFound = document.getElementById('imeiLookupNotFound');
+  panel.style.display = 'block';
+  if (type === 'found' && ref) {
+    found.style.display = 'block';
+    notFound.style.display = 'none';
+    document.getElementById('ilProductName').textContent = ref.productName;
+    document.getElementById('ilProductCode').textContent = ref.productCode;
+    document.getElementById('ilImeiVal').textContent = imei;
+    const badge = document.getElementById('ilStatusBadge');
+    badge.className = 'badge ' + (imeiStatusClass[ref.status] || 'imei-status-other');
+    badge.textContent = imeiStatusLabel[ref.status] || ref.status;
+  } else {
+    found.style.display = 'none';
+    notFound.style.display = 'block';
+    document.getElementById('ilNotFoundImei').textContent = imei;
+  }
+}
+
+// ─── IMEI RENDER ─────────────────────────────────────
+const imeiStatusClass = { NEW:'imei-status-new', SHOW:'imei-status-show', DISPLAY:'imei-status-display', ERROR:'imei-status-error', REFURB:'imei-status-refurb', DAMAGED:'imei-status-damaged', OTHER:'imei-status-other' };
+const imeiStatusLabel = { NEW:'New', SHOW:'Show', DISPLAY:'Display', ERROR:'Error', REFURB:'Refurb', DAMAGED:'Damaged', OTHER:'Other' };
+
+function renderImeiDbStatusBreakdown() {
+  var wrap = document.getElementById('imeiDbStatusBreakdown');
+  if (!wrap) return;
+  var STATUS_ORDER = ['NEW','SHOW','DISPLAY','REFURB','ERROR','DAMAGED','OTHER'];
+  var statusAccent = {
+    NEW:     {border:'rgba(34,197,94,.4)',   color:'#22c55e',  bg:'rgba(34,197,94,.1)'},
+    SHOW:    {border:'rgba(167,139,250,.4)', color:'#a78bfa',  bg:'rgba(167,139,250,.1)'},
+    DISPLAY: {border:'rgba(240,192,64,.4)',  color:'#f0c040',  bg:'rgba(240,192,64,.1)'},
+    REFURB:  {border:'rgba(96,165,250,.4)',  color:'#60a5fa',  bg:'rgba(96,165,250,.1)'},
+    ERROR:   {border:'rgba(239,68,68,.5)',   color:'#ff6b6b',  bg:'rgba(239,68,68,.12)'},
+    DAMAGED: {border:'rgba(239,68,68,.4)',   color:'#ef4444',  bg:'rgba(239,68,68,.1)'},
+    OTHER:   {border:'rgba(148,163,184,.3)', color:'#94a3b8',  bg:'rgba(148,163,184,.08)'},
+  };
+  var dbByStatus = {};
+  Object.values(imeiDB).forEach(function(ref){
+    var st = ref.status || 'OTHER';
+    dbByStatus[st] = (dbByStatus[st]||0)+1;
+  });
+  var dbByCategory = {};
+  Object.values(imeiDB).forEach(function(ref){
+    var cat = ref.mainCategory ? ref.mainCategory.replace(/^\d+\s*-\s*\w+\s*-\s*/,'').trim() : '';
+    if (cat) dbByCategory[cat] = (dbByCategory[cat]||0)+1;
+  });
+  var total = Object.keys(imeiDB).length;
+  if (!total) { wrap.style.display = 'none'; return; }
+  var ordered = STATUS_ORDER.filter(function(s){ return dbByStatus[s]; })
+    .concat(Object.keys(dbByStatus).filter(function(s){ return STATUS_ORDER.indexOf(s)<0; }));
+  var catKeys = Object.keys(dbByCategory).sort(function(a,b){ return dbByCategory[b]-dbByCategory[a]; });
+  wrap.style.display = 'flex';
+  var html = '<div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:#7c3aed;text-transform:uppercase;width:100%;margin-bottom:4px;">DB per Status</div>';
+  ordered.forEach(function(st){
+    var ac = statusAccent[st] || statusAccent['OTHER'];
+    var lbl = imeiStatusLabel[st] || st;
+    var n = dbByStatus[st] || 0;
+    html += '<div style="display:inline-flex;flex-direction:column;align-items:center;min-width:52px;padding:5px 10px;border:1px solid '+ac.border+';background:'+ac.bg+';border-radius:2px;">'
+      + '<div style="font-family:var(--cond);font-weight:900;font-size:18px;line-height:1;color:'+ac.color+';">'+n+'</div>'
+      + '<div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:'+ac.color+';opacity:.8;text-transform:uppercase;margin-top:2px;">'+lbl+'</div>'
+      + '</div>';
+  });
+  if (catKeys.length) {
+    html += '<div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:#7c3aed;text-transform:uppercase;width:100%;margin-top:10px;margin-bottom:4px;">DB per Kategori</div>';
+    catKeys.forEach(function(cat){
+      html += '<div style="display:inline-flex;flex-direction:column;align-items:center;min-width:52px;padding:5px 8px;border:1px solid rgba(96,165,250,.3);background:rgba(96,165,250,.08);border-radius:2px;">'
+        + '<div style="font-family:var(--cond);font-weight:900;font-size:18px;line-height:1;color:#60a5fa;">'+dbByCategory[cat]+'</div>'
+        + '<div style="font-family:var(--mono);font-size:7px;color:#60a5fa;opacity:.85;text-transform:uppercase;margin-top:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+cat+'">'+cat+'</div>'
+        + '</div>';
+    });
+  }
+  wrap.innerHTML = html;
+}
+
+function renderImeiResults() {
+  const count = imeiData.length;
+  const foundCount = imeiData.filter(d => d.fromDB).length;
+  const missingCount = count - foundCount;
+  document.getElementById('imeiCount').textContent = count;
+  document.getElementById('imeiCountFound').textContent = foundCount;
+  document.getElementById('imeiCountMissing').textContent = missingCount;
+  renderImeiDbStatusBreakdown();
+
+  const cards = document.getElementById('imeiResultCards');
+  const empty = document.getElementById('imeiEmpty');
+  if (!count) { cards.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  const reversed = [...imeiData].reverse();
+  cards.innerHTML = reversed.map((d, ri) => {
+    const realIdx = imeiData.length - 1 - ri;
+    const cls = imeiStatusClass[d.status] || 'imei-status-other';
+    const lbl = imeiStatusLabel[d.status] || d.status;
+    const foundDot = d.fromDB
+      ? `<span style="width:6px;height:6px;background:#22c55e;border-radius:50%;display:inline-block;flex-shrink:0;"></span>`
+      : `<span style="width:6px;height:6px;background:var(--minus);border-radius:50%;display:inline-block;flex-shrink:0;" title="Tidak ada di database"></span>`;
+    const nameRow = d.productName
+      ? `<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(d.productName)}</div>`
+      : `<div style="font-size:12px;color:var(--text3);font-style:italic;">Produk tidak dikenal</div>`;
+    const codeRow = d.productCode
+      ? `<div style="font-family:var(--mono);font-size:9px;color:#a78bfa;">${escHtml(d.productCode)}</div>`
+      : '';
+    return `<div class="result-card">
+      <div class="result-card-left" style="min-width:0;">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:1px;">${foundDot}${codeRow}</div>
+        ${nameRow}
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.5px;">${escHtml(d.imei)}</div>
+      </div>
+      <div class="result-card-right">
+        <span class="${cls} badge" style="border-radius:2px;font-size:9px;">${lbl}</span>
+        <button class="result-del-btn" onclick="deleteImei(${realIdx})" title="Hapus">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteImei(idx) {
+  imeiData.splice(idx, 1);
+  lastImeiAction = null;
+  save();
+  renderImeiResults();
+  if (currentSoMode === 'imei') renderScannerHasil();
+  renderStats();
+  showToast('🗑 IMEI dihapus');
+}
+
+// ─── IMEI IMPORT FROM XLSX ────────────────────────────
+let imeiImportRows = [];
+let imeiImportHeaders = [];
+
+function importImeiFromXlsx(input) {
+  const file = input.files[0];
+  if (!file) return;
+  showToast('⏳ Membaca file...');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      if (typeof XLSX === 'undefined') { showToast('⚠ Library XLSX belum siap'); return; }
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (json.length < 2) { showToast('⚠ File kosong'); return; }
+      imeiImportHeaders = json[0].map(h => String(h).trim());
+      imeiImportRows = json.slice(1).filter(row => row.some(c => String(c).trim() !== ''));
+
+      const opts = imeiImportHeaders.map((h, i) => `<option value="${i}">${h || 'Kolom '+(i+1)}</option>`).join('');
+      const optNone = '<option value="-1">— Tidak ada —</option>';
+      ['imeiMapCode','imeiMapName','imeiMapImei'].forEach(id => document.getElementById(id).innerHTML = opts);
+      document.getElementById('imeiMapStatus').innerHTML = optNone + opts;
+      if (document.getElementById('imeiMapCategory')) document.getElementById('imeiMapCategory').innerHTML = optNone + opts;
+
+      // Auto-detect columns
+      const find = (...kws) => {
+        const i = imeiImportHeaders.findIndex(h => kws.some(k => h.toLowerCase().includes(k)));
+        return i >= 0 ? i : 0;
+      };
+      document.getElementById('imeiMapCode').value  = find('product code','kode','code','sku');
+      document.getElementById('imeiMapName').value  = find('product name','nama','name','deskripsi');
+      document.getElementById('imeiMapImei').value  = find('imei','serial','barcode');
+      const _catEl = document.getElementById('imeiMapCategory');
+      if (_catEl) { const _ci = imeiImportHeaders.findIndex(h => ['main category','category','kategori'].some(k => h.toLowerCase().includes(k))); _catEl.value = _ci >= 0 ? _ci : -1; }
+      const statusIdx = find('inventory status','status kondisi','kondisi','status');
+      document.getElementById('imeiMapStatus').value = statusIdx >= 0 ? statusIdx : -1;
+
+      document.getElementById('imeiImportInfoText').textContent =
+        `✔ ${file.name}  |  ${imeiImportRows.length} baris  |  Sheet: ${wb.SheetNames[0]}`;
+      document.getElementById('imeiImportInfo').style.display = 'block';
+      updateImeiImportPreview();
+      showToast(`✔ File terbaca — ${imeiImportRows.length} baris`);
+    } catch(err) { showToast('⚠ Gagal baca: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+  document.getElementById('imeiImportFile').value = '';
+}
+
+function updateImeiImportPreview() {
+  const ci = parseInt(document.getElementById('imeiMapCode').value);
+  const ni = parseInt(document.getElementById('imeiMapName').value);
+  const ii = parseInt(document.getElementById('imeiMapImei').value);
+  const preview = imeiImportRows.slice(0, 3).map(row =>
+    `${String(row[ci]||'').slice(0,14)} | ${String(row[ni]||'').slice(0,22)} | IMEI:${String(row[ii]||'').slice(0,16)}`
+  ).join('\n');
+  document.getElementById('imeiImportPreview').textContent = 'Preview 3 baris:\n' + preview;
+}
+
+// Map inventory status string — use raw value from file as-is (uppercase)
+// Supported: NEW, SHOW, DISPLAY, ERROR, REFURB, DAMAGED, OTHER
+const KNOWN_STATUSES = ['NEW', 'SHOW', 'DISPLAY', 'ERROR', 'REFURB', 'DAMAGED', 'OTHER'];
+function mapInventoryStatus(raw) {
+  if (!raw) return 'NEW';
+  const s = String(raw).trim().toUpperCase();
+  // Exact match only — no partial matching to avoid "error new" being read as "NEW"
+  if (KNOWN_STATUSES.includes(s)) return s;
+  // Unknown value: store raw as-is so nothing is lost
+  return s || 'OTHER';
+}
+
+function doImportImeiData() {
+  if (!imeiImportRows.length) { showToast('⚠ Upload file dulu'); return; }
+  const ci = parseInt(document.getElementById('imeiMapCode').value);
+  const ni = parseInt(document.getElementById('imeiMapName').value);
+  const ii = parseInt(document.getElementById('imeiMapImei').value);
+  const si = parseInt(document.getElementById('imeiMapStatus').value);
+  const cati = document.getElementById('imeiMapCategory') ? parseInt(document.getElementById('imeiMapCategory').value) : -1;
+
+  let added = 0, dupes = 0, skipped = 0;
+
+  imeiImportRows.forEach(row => {
+    const imei = String(row[ii] || '').trim();
+    const productCode = String(row[ci] || '').trim();
+    const productName = String(row[ni] || '').trim();
+    if (!imei) { skipped++; return; }
+    if (imeiDB[imei]) { dupes++; return; }
+    const rawStatus = si >= 0 ? row[si] : '';
+    const status = mapInventoryStatus(rawStatus);
+    const mainCategory = cati >= 0 ? String(row[cati] || '').trim() : '';
+    imeiDB[imei] = { productCode, productName, status, mainCategory };
+    added++;
+  });
+
+  save();
+  updateImeiDbCount();
+  renderScannerMaster();
+  document.getElementById('imeiImportInfo').style.display = 'none';
+  imeiImportRows = []; imeiImportHeaders = [];
+  showToast(`✔ DB: ${added} IMEI dimuat${dupes ? ', ' + dupes + ' duplikat' : ''}${skipped ? ', ' + skipped + ' baris kosong' : ''}`);
+  // Focus back to scan input if on input page
+  const imeiInputEl = document.getElementById('imeiInput');
+  if (imeiInputEl) imeiInputEl.focus();
+}
+
+// ─── IMEI EXPORT (Legacy alias) ──────────────────────
+function exportImeiXLSX() { exportImeiXLSXDetailed(); }
+
+// ─── IMEI EXPORT DETAILED (Multi-Sheet) ──────────────
+function exportImeiXLSXDetailed() {
+  if (!imeiData.length && !Object.keys(imeiDB).length) { showToast('⚠ Tidak ada data tersedia untuk diekspor'); return; }
+  if (typeof XLSX === 'undefined') { showToast('⚠ Library XLSX belum siap'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+
+  // ── Sheet 1: Detail Semua Scan ──────────────────────
+  const ws1Data = [['No','Kode Produk','Nama Produk','IMEI','Kondisi','DB Status','Waktu Scan']];
+  imeiData.forEach((d, i) => {
+    ws1Data.push([i+1, d.productCode||'', d.productName||'Unknown Product', d.imei, d.status||'NEW', d.fromDB?'Terdaftar':'Tdk Terdaftar', new Date(d.ts).toLocaleString('id-ID')]);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
+  ws1['!cols'] = [{wch:5},{wch:18},{wch:32},{wch:20},{wch:12},{wch:10},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Detail Scan');
+
+  // ── Sheet 2: Compare by IMEI ────────────────────────
+  var scannedSet2 = new Set(imeiData.map(function(d){ return d.imei; }));
+  var imeiCompareRows = [];
+
+  // IMEIs from DB: found or not scanned
+  Object.entries(imeiDB).forEach(function(entry) {
+    var imei = entry[0]; var ref = entry[1];
+    var scanned = scannedSet2.has(imei);
+    imeiCompareRows.push({ imei: imei, code: ref.productCode||'', name: ref.productName||'', status: ref.status||'NEW', compareStatus: scanned ? 'Terpindai' : 'Belum Dipindai', inDB: 'Terdaftar' });
+  });
+  // IMEIs scanned but not in DB
+  imeiData.forEach(function(d) {
+    if (!imeiDB[d.imei]) {
+      imeiCompareRows.push({ imei: d.imei, code: d.productCode||'', name: d.productName||'', status: d.status||'OTHER', compareStatus: 'Tdk Terdaftar', inDB: 'Tdk Terdaftar' });
+    }
+  });
+  // Sort: belum scan first, then tidak di DB, then terscan
+  var cmpOrder = {'Not Scanned':0,'Unregistered':1,'Verified':2};
+  imeiCompareRows.sort(function(a,b){ return (cmpOrder[a.compareStatus]||3)-(cmpOrder[b.compareStatus]||3); });
+
+  var nFound2 = imeiCompareRows.filter(function(r){ return r.compareStatus==='TERSCAN'; }).length;
+  var nMissing2 = imeiCompareRows.filter(function(r){ return r.compareStatus==='BELUM SCAN'; }).length;
+  var nExtra2 = imeiCompareRows.filter(function(r){ return r.compareStatus==='TIDAK di DB'; }).length;
+
+  var ws2Data = [['No','IMEI','Kode Produk','Nama Produk','Kondisi','DB Status','Scan Status']];
+  imeiCompareRows.forEach(function(r, i) {
+    ws2Data.push([i+1, r.imei, r.code, r.name, r.status, r.inDB, r.compareStatus]);
+  });
+  ws2Data.push(['']);
+  ws2Data.push(['TOTAL DB', Object.keys(imeiDB).length, '', '', '', '', '']);
+  ws2Data.push(['Terpindai', nFound2, '', '', '', '', '']);
+  ws2Data.push(['Belum Dipindai', nMissing2, '', '', '', '', '']);
+  ws2Data.push(['Tidak Terdaftar', nExtra2, '', '', '', '', '']);
+  const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
+  ws2['!cols'] = [{wch:5},{wch:20},{wch:16},{wch:30},{wch:14},{wch:8},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Compare IMEI');
+
+  // ── Sheet 3: IMEI Belum Scan ─────────────────────────
+  const scannedSet = new Set(imeiData.map(d => d.imei));
+  const ws3Data = [['No','Kode Produk','Nama Produk','IMEI (Belum Scan)','Status DB']];
+  let no = 1;
+  Object.entries(imeiDB).forEach(([imei, ref]) => {
+    if (!scannedSet.has(imei)) ws3Data.push([no++, ref.productCode||'', ref.productName||'', imei, ref.status||'']);
+  });
+  if (ws3Data.length === 1) ws3Data.push(['','','Semua IMEI sudah terscan!','','']);
+  const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
+  ws3['!cols'] = [{wch:5},{wch:18},{wch:32},{wch:20},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'IMEI Belum Scan');
+
+  // ── Sheet 4: Ringkasan ──────────────────────────────
+  const totalScan = imeiData.length;
+  const foundInDB = imeiData.filter(d => d.fromDB).length;
+  const notInDB = totalScan - foundInDB;
+  const totalDB = Object.keys(imeiDB).length;
+  const belumScan = totalDB - foundInDB;
+  let prodPlus=0, prodMinus=0, prodSesuai=0, prodBelumScan=0;
+  // Use IMEI compare stats for summary
+  var ws4Data = [
+    ['RINGKASAN STOCK OPNAME — MODE IMEI'],['Tanggal Export', tanggal],[''],
+    ['── STATISTIK SCAN ──',''],
+    ['Total IMEI Terscan', totalScan],['IMEI Ada di Database', foundInDB],['IMEI Tidak di Database', notInDB],['Total IMEI di Database', totalDB],['IMEI Belum Terscan', belumScan],[''],
+    ['── HASIL COMPARE IMEI ──',''],
+    ['Total IMEI di Database', Object.keys(imeiDB).length],['IMEI Terscan (sesuai DB)', nFound2],['IMEI Belum Scan', nMissing2],['IMEI Tidak di DB (extra)', nExtra2],
+  ];
+  const ws4 = XLSX.utils.aoa_to_sheet(ws4Data);
+  ws4['!cols'] = [{wch:32},{wch:22}];
+  XLSX.utils.book_append_sheet(wb, ws4, 'Ringkasan');
+
+  XLSX.writeFile(wb, 'SO_IMEI_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  showToast('✔ Export IMEI — 4 sheet');
+}
+
+// ─── IMEI UNDO ────────────────────────────────────────
+let lastImeiAction = null;
+
+function doUndoImei() {
+  if (!lastImeiAction) { showToast('Tidak ada aksi untuk di-undo'); return; }
+  const { removed } = lastImeiAction;
+  const idx = imeiData.findIndex(d => d.imei === removed.imei && d.ts === removed.ts);
+  if (idx !== -1) imeiData.splice(idx, 1);
+  lastImeiAction = null;
+  save(); renderImeiResults();
+  if (currentSoMode === 'imei') renderScannerHasil();
+  renderStats();
+  const lookupEl = document.getElementById('imeiLookupResult');
+  if (lookupEl) lookupEl.style.display = 'none';
+  showToast('↩ Undo scan: ' + removed.imei);
+}
+
+// ─── IMEI RESET ────────────────────────────────────────
+function confirmResetImei() {
+  if (!imeiData.length) { showToast('⚠ Belum ada data scan'); return; }
+  showConfirm('Reset Hasil Scan IMEI?', `Semua ${imeiData.length} data scan akan dihapus. Database IMEI tidak terpengaruh.`, 'YA, RESET', () => {
+    lastImeiAction = null; imeiData = [];
+    save(); renderImeiResults(); renderScannerHasil(); renderStats();
+    // Sembunyikan panel lookup dan clear input
+    const lookupEl = document.getElementById('imeiLookupResult');
+    if (lookupEl) lookupEl.style.display = 'none';
+    const inputEl = document.getElementById('imeiInput');
+    if (inputEl) { inputEl.value = ''; inputEl.focus(); }
+    showToast('🗑 Semua hasil scan direset');
+  });
+}
+
+// ─── CALC ─────────────────────────────────────────────
+function calcStatus(diff) {
+  if (diff > 0) return 'PLUS';
+  if (diff < 0) return 'MINUS';
+  return 'SESUAI';
+}
+
+// ─── RENDER STATS ─────────────────────────────────────
+function renderStats() {
+  if (currentSoMode === 'imei') { renderStatsScanner(); } else { renderStatsNormal(); }
+}
+
+function renderStatsNormal() {
+  const keys = Object.keys(soData);
+  const checked = keys.length;
+  const total = productDB.length > 0 ? productDB.length : checked;
+  const missing = Math.max(0, total - checked);
+  let plus = 0, minus = 0, sesuai = 0;
+  keys.forEach(k => {
+    const diff = soData[k].physQty - soData[k].sysQty;
+    if (diff > 0) plus++;
+    else if (diff < 0) minus++;
+    else sesuai++;
+  });
+  document.getElementById('statGrid').innerHTML =
+    '<div class="stat-cell"><div class="stat-num accent">'+(productDB.length > 0 ? productDB.length : checked)+'</div><div class="stat-label">Total</div></div>' +
+    '<div class="stat-cell"><div class="stat-num">'+checked+'</div><div class="stat-label">Dicek</div></div>' +
+    '<div class="stat-cell"><div class="stat-num minus">'+missing+'</div><div class="stat-label">Missing</div></div>' +
+    '<div class="stat-cell"><div class="stat-num plus">'+plus+'</div><div class="stat-label">Plus</div></div>' +
+    '<div class="stat-cell"><div class="stat-num minus">'+minus+'</div><div class="stat-label">Minus</div></div>' +
+    '<div class="stat-cell"><div class="stat-num sesuai">'+sesuai+'</div><div class="stat-label">Sesuai</div></div>';
+  if (document.getElementById('missingCount')) document.getElementById('missingCount').textContent = missing;
+}
+
+function buildImeiCompare() {
+  // build per-product compare: system qty (from imeiDB) vs fisik terscan
+  const dbByProduct = {};
+  Object.entries(imeiDB).forEach(function(entry) {
+    var imei = entry[0]; var ref = entry[1];
+    var key = (ref.productCode||'') + '|||' + (ref.productName||'?');
+    if (!dbByProduct[key]) dbByProduct[key] = { code: ref.productCode, name: ref.productName||'?', sysQty: 0, physQty: 0 };
+    dbByProduct[key].sysQty++;
+  });
+  imeiData.forEach(function(d) {
+    if (!d.fromDB) return;
+    var key = (d.productCode||'') + '|||' + (d.productName||'?');
+    if (!dbByProduct[key]) dbByProduct[key] = { code: d.productCode, name: d.productName||'?', sysQty: 0, physQty: 0 };
+    dbByProduct[key].physQty++;
+  });
+  return dbByProduct;
+}
+
+function renderStatsScanner() {
+  var totalScan = imeiData.length;
+  var foundInDB = imeiData.filter(function(d){ return d.fromDB; }).length;
+  var notInDB = totalScan - foundInDB;
+  var totalDB = Object.keys(imeiDB).length;
+  var belumScan = Math.max(0, totalDB - foundInDB);
+  var progress = totalDB > 0 ? Math.round((foundInDB / totalDB) * 100) : 0;
+  var cmp = buildImeiCompare();
+  // add unscanned products
+  Object.entries(imeiDB).forEach(function(e){
+    var ref=e[1], key=(ref.productCode||'')+'||'+(ref.productName||'?');
+    if(!cmp[key]) cmp[key]={code:ref.productCode,name:ref.productName||'?',sysQty:0,physQty:0};
+  });
+  var prodPlus=0, prodMinus=0, prodSesuai=0, prodBelum=0;
+  Object.values(cmp).forEach(function(p){
+    var diff=p.physQty-p.sysQty;
+    if(p.physQty===0&&p.sysQty>0) prodBelum++;
+    else if(diff>0) prodPlus++;
+    else if(diff<0) prodMinus++;
+    else prodSesuai++;
+  });
+
+  // Main stat grid (top of page)
+  document.getElementById('statGrid').innerHTML =
+    '<div class="stat-cell" style="background:rgba(124,58,237,.1);"><div class="stat-num" style="color:#a78bfa;">'+totalScan+'</div><div class="stat-label" style="color:#7c3aed;">Terscan</div></div>' +
+    '<div class="stat-cell" style="background:rgba(124,58,237,.1);"><div class="stat-num plus">'+foundInDB+'</div><div class="stat-label" style="color:#16a34a;">Ada DB</div></div>' +
+    '<div class="stat-cell" style="background:rgba(124,58,237,.1);"><div class="stat-num minus">'+notInDB+'</div><div class="stat-label">Tdk DB</div></div>' +
+    '<div class="stat-cell" style="background:rgba(124,58,237,.06);"><div class="stat-num accent">'+totalDB+'</div><div class="stat-label">Total DB</div></div>' +
+    '<div class="stat-cell" style="background:rgba(124,58,237,.06);"><div class="stat-num minus">'+prodMinus+'</div><div class="stat-label">Kurang</div></div>' +
+    '<div class="stat-cell" style="background:rgba(124,58,237,.06);"><div class="stat-num sesuai">'+prodSesuai+'</div><div class="stat-label">Sesuai</div></div>';
+
+  // Dashboard on Hasil page
+  var set = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+  set('dash-terscan', totalScan);
+  set('dash-adaDB', foundInDB);
+  set('dash-tidakDB', notInDB);
+  set('dash-totalDB', totalDB);
+  set('dash-belumScan', belumScan);
+  set('dash-progress', progress+'%');
+  var pb = document.getElementById('imeiProgressBar');
+  if (pb) pb.style.width = progress + '%';
+
+  // sh-* mini stats
+  set('sh-total', totalScan);
+  set('sh-found', foundInDB);
+  set('sh-notfound', notInDB);
+}
+
+// ─── RENDER RESULTS (Input Page) ──────────────────────
+function renderResults() {
+  const keys = Object.keys(soData);
+  const rcEl = document.getElementById('resultCount');
+  if (rcEl) rcEl.textContent = keys.length;
+  const cardsEl = document.getElementById('resultsCards');
+  const emptyEl = document.getElementById('resultsEmpty');
+  if (!keys.length) {
+    cardsEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  cardsEl.style.display = 'block';
+  cardsEl.innerHTML = keys.map(k => {
+    const d = soData[k];
+    const diff = d.physQty - d.sysQty;
+    const st = calcStatus(diff);
+    const stCls = st.toLowerCase();
+    const kSafe = encodeURIComponent(k);
+    const diffStr = (diff > 0 ? '+' : '') + diff;
+    return `
+      <div class="result-card">
+        <div class="result-card-left">
+          <div class="result-card-code">${escHtml(d.code)}</div>
+          <div class="result-card-name">${escHtml(d.name)}</div>
+          <div class="result-card-qty">Sys: ${d.sysQty} &nbsp;|&nbsp; Fisik: <span class="phy">${d.physQty}</span> &nbsp;|&nbsp; <span class="${diff > 0 ? 'diff-plus' : diff < 0 ? 'diff-minus' : ''}">${diffStr}</span></div>
+        </div>
+        <div class="result-card-right">
+          <span class="badge ${stCls}">${st}</span>
+          <button class="result-del-btn" onclick="deleteResult('${kSafe}')" title="Hapus">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── DELETE RESULT ROW ────────────────────────────────
+function deleteResult(kEncoded) {
+  const k = decodeURIComponent(kEncoded);
+  if (!soData[k]) return;
+  lastAction = { key: k, prev: { ...soData[k] } };
+  delete soData[k];
+  save(); renderResults(); renderStats();
+  showToast('🗑 Data dihapus — tekan ↩ untuk batal');
+}
+
+// ─── RENDER COMPARE (Halaman Hasil) ───────────────────
+function renderCompare() {
+  const checkedKeys = new Set(Object.values(soData).map(d => d.code + '|' + d.name));
+
+  // Build full list: all master + checked
+  const allItems = [];
+
+  // Missing items from master
+  productDB.forEach(p => {
+    const key = p.code + '|' + p.name;
+    if (!checkedKeys.has(key)) {
+      allItems.push({ type: 'missing', code: p.code, name: p.name, sysQty: p.sysQty, physQty: null, diff: null });
+    }
+  });
+
+  // Checked items
+  Object.values(soData).forEach(d => {
+    const diff = d.physQty - d.sysQty;
+    const status = calcStatus(diff);
+    allItems.push({ type: status.toLowerCase(), code: d.code, name: d.name, sysQty: d.sysQty, physQty: d.physQty, diff });
+  });
+
+  // Filter
+  const filtered = allItems.filter(item => {
+    if (currentFilter === 'all') return true;
+    if (currentFilter === 'missing') return item.type === 'missing';
+    if (currentFilter === 'plus') return item.type === 'plus';
+    if (currentFilter === 'minus') return item.type === 'minus';
+    if (currentFilter === 'sesuai') return item.type === 'sesuai';
+    return true;
+  });
+
+  const container = document.getElementById('compareList');
+  const emptyEl = document.getElementById('missingEmpty');
+
+  if (!filtered.length) {
+    container.innerHTML = '';
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = currentFilter === 'all' ? 'Belum ada data.' : 'Tidak ada item dengan filter ini.';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  container.innerHTML = filtered.map(item => {
+    let diffCell = '-';
+    let statusTag = '';
+    if (item.type === 'missing') {
+      diffCell = '-';
+      statusTag = `<span class="compare-missing-tag">MISSING</span>`;
+    } else {
+      const sign = item.diff > 0 ? '+' : '';
+      diffCell = `<span class="${item.diff > 0 ? 'plus' : item.diff < 0 ? 'minus' : ''}">${sign}${item.diff}</span>`;
+      if (item.type === 'plus') statusTag = `<span class="compare-plus-tag">PLUS</span>`;
+      else if (item.type === 'minus') statusTag = `<span class="compare-minus-tag">MINUS</span>`;
+      else statusTag = `<span class="compare-ok-tag">SESUAI</span>`;
+    }
+    return `
+      <div class="compare-row">
+        <div class="compare-row-info">
+          <div class="compare-row-code">${escHtml(item.code)}</div>
+          <div class="compare-row-name">${escHtml(item.name)}</div>
+        </div>
+        <div class="compare-cell">${item.sysQty}</div>
+        <div class="compare-cell">${item.physQty !== null ? item.physQty : '-'}</div>
+        <div class="compare-cell">${diffCell}</div>
+        <div class="compare-cell">${statusTag}</div>
+      </div>`;
+  }).join('');
+}
+
+// ─── RENDER MASTER ────────────────────────────────────
+function renderMaster() {
+  document.getElementById('masterCount').textContent = productDB.length;
+  const cardsEl = document.getElementById('masterCards');
+  const emptyEl = document.getElementById('masterEmpty');
+  if (!productDB.length) {
+    cardsEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  cardsEl.innerHTML = productDB.map(p => `
+    <div class="master-card">
+      <div class="master-card-code">${escHtml(p.code)}</div>
+      <div class="master-card-name">${escHtml(p.name)}</div>
+      <div class="master-card-qty">${p.sysQty}</div>
+    </div>`).join('');
+}
+
+// ─── MASTER TAB SWITCHER ─────────────────────────────
+function switchMTab(i) {
+  [0,1,2].forEach(j => {
+    const tab = document.getElementById('mtab'+j);
+    const panel = document.getElementById('mpanel'+j);
+    tab.style.color = i === j ? 'var(--accent)' : 'var(--text3)';
+    tab.style.borderBottom = i === j ? '2px solid var(--accent)' : '2px solid transparent';
+    panel.style.display = i === j ? 'block' : 'none';
+  });
+}
+
+// ─── PASTE IMPORT ─────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('masterPaste');
+  if (ta) {
+    ta.addEventListener('input', () => {
+      const lines = ta.value.trim().split('\n').filter(l => l.trim());
+      let valid = 0;
+      lines.forEach(l => { if (l.split('\t').length >= 2 && l.split('\t')[0].trim()) valid++; });
+      document.getElementById('pastePreview').textContent =
+        lines.length ? `${lines.length} baris terdeteksi, ${valid} valid` : '';
+    });
+  }
+  const dz = document.getElementById('xlsxDropzone');
+  if (dz) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--accent)'; });
+    dz.addEventListener('dragleave', () => { dz.style.borderColor = 'var(--accent)'; });
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) handleXlsxUpload({ files: [file] });
+    });
+  }
+  const mc = document.getElementById('mCode');
+  const mn = document.getElementById('mName');
+  const mq = document.getElementById('mQty');
+  if (mc) mc.addEventListener('keydown', e => { if (e.key === 'Enter') mn.focus(); });
+  if (mn) mn.addEventListener('keydown', e => { if (e.key === 'Enter') mq.focus(); });
+  if (mq) mq.addEventListener('keydown', e => { if (e.key === 'Enter') addMasterRow(); });
+
+  // IMEI input listeners
+  const imeiInp = document.getElementById('imeiInput');
+  if (imeiInp) {
+    imeiInp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitImei();
+    });
+  }
+
+  // Scanner master manual input key listeners
+  const smImei = document.getElementById('smImei');
+  const smCode = document.getElementById('smCode');
+  const smName = document.getElementById('smName');
+  if (smImei) smImei.addEventListener('keydown', e => { if (e.key === 'Enter') { if (smCode) smCode.focus(); else addImeiToMasterDB(); } });
+  if (smCode) smCode.addEventListener('keydown', e => { if (e.key === 'Enter') { if (smName) smName.focus(); } });
+  if (smName) smName.addEventListener('keydown', e => { if (e.key === 'Enter') addImeiToMasterDB(); });
+
+  // IMEI import mapping change listeners
+  ['imeiMapCode','imeiMapName','imeiMapImei','imeiMapStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => { if (imeiImportRows.length) updateImeiImportPreview(); });
+  });
+});
+
+function importFromPaste() {
+  const raw = document.getElementById('masterPaste').value.trim();
+  if (!raw) { showToast('⚠ Belum ada data dipaste'); return; }
+  const lines = raw.split('\n').filter(l => l.trim());
+  const aggMap = {};
+  lines.forEach(line => {
+    const cols = line.split('\t');
+    if (cols.length < 2) return;
+    const code = String(cols[0]).trim();
+    const name = String(cols[1]).trim();
+    const qty  = parseFloat(String(cols[2] || '0').trim()) || 0;
+    if (!code && !name) return;
+    if (isNaN(parseFloat(code)) && cols.length >= 3 && isNaN(parseFloat(cols[2]))) {
+      const qStr = String(cols[2]).toLowerCase();
+      if (['qty','quantity','jumlah','sistem','stok','stock'].includes(qStr)) return;
+    }
+    const key = code + '|||' + name;
+    if (aggMap[key]) aggMap[key].sysQty += qty;
+    else aggMap[key] = { code: code || name, name: name || code, sysQty: qty };
+  });
+  const entries = Object.values(aggMap);
+  if (!entries.length) { showToast('⚠ Tidak ada data valid. Pastikan format Tab-separated.'); return; }
+
+  const doImport = () => {
+    if (productDB.length > 0) entries.forEach(e => productDB.push(e));
+    else productDB = entries;
+    save(); renderMaster(); renderStats();
+    document.getElementById('masterPaste').value = '';
+    document.getElementById('pastePreview').textContent = '';
+    showToast(`✔ ${entries.length} produk diimport dari paste`);
+  };
+
+  if (productDB.length > 0) {
+    showConfirm('Tambah ke Master?', `Tambahkan ${entries.length} produk ke master yang sudah ada (${productDB.length} produk)?`, 'TAMBAHKAN', doImport);
+  } else {
+    doImport();
+  }
+}
+
+// ─── XLSX UPLOAD ─────────────────────────────────────
+let xlsxRows = [];
+let xlsxHeaders = [];
+
+function handleXlsxUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  showToast('⏳ Membaca file...');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      if (typeof XLSX === 'undefined') { showToast('⚠ Library XLSX belum siap'); return; }
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (json.length < 2) { showToast('⚠ File kosong'); return; }
+      xlsxHeaders = json[0].map(h => String(h).trim());
+      xlsxRows = json.slice(1).filter(row => row.some(c => String(c).trim() !== ''));
+      ['mapCode','mapName','mapQty'].forEach(id => {
+        document.getElementById(id).innerHTML =
+          xlsxHeaders.map((h, i) => `<option value="${i}">${h || 'Kolom '+(i+1)}</option>`).join('');
+      });
+      const find = (...kws) => {
+        const i = xlsxHeaders.findIndex(h => kws.some(k => h.toLowerCase().includes(k)));
+        return i >= 0 ? i : 0;
+      };
+      document.getElementById('mapCode').value = find('product code','kode','code','sku');
+      document.getElementById('mapName').value = find('product name','nama','name','deskripsi','item');
+      document.getElementById('mapQty').value  = find('quantity_1','quantity','qty','jumlah','stok','stock');
+      document.getElementById('xlsxInfoText').textContent =
+        `✔ ${file.name}  |  ${xlsxRows.length} baris  |  Sheet: ${wb.SheetNames[0]}`;
+      updateXlsxPreview();
+      document.getElementById('xlsxInfo').style.display = 'block';
+      showToast(`✔ File terbaca — ${xlsxRows.length} baris`);
+    } catch(err) {
+      showToast('⚠ Gagal baca file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  document.getElementById('xlsxFileInput').value = '';
+}
+
+function updateXlsxPreview() {
+  const ci = parseInt(document.getElementById('mapCode').value);
+  const ni = parseInt(document.getElementById('mapName').value);
+  const qi = parseInt(document.getElementById('mapQty').value);
+  const preview = xlsxRows.slice(0, 3).map(row =>
+    `${String(row[ci]||'').slice(0,18)} | ${String(row[ni]||'').slice(0,24)} | qty:${row[qi]||0}`
+  ).join('\n');
+  document.getElementById('xlsxPreviewRows').textContent = 'Preview 3 baris pertama:\n' + preview;
+}
+
+['mapCode','mapName','mapQty'].forEach(id => {
+  document.addEventListener('change', e => {
+    if (e.target && e.target.id === id && xlsxRows.length) updateXlsxPreview();
+  });
+});
+
+function importFromXlsx() {
+  if (!xlsxRows.length) { showToast('⚠ Upload file dulu'); return; }
+  const ci = parseInt(document.getElementById('mapCode').value);
+  const ni = parseInt(document.getElementById('mapName').value);
+  const qi = parseInt(document.getElementById('mapQty').value);
+  const aggMap = {};
+  xlsxRows.forEach(row => {
+    const code = String(row[ci] || '').trim();
+    const name = String(row[ni] || '').trim();
+    const qty  = parseFloat(row[qi]) || 0;
+    if (!code && !name) return;
+    const key = code + '|||' + name;
+    if (aggMap[key]) aggMap[key].sysQty += qty;
+    else aggMap[key] = { code: code || name, name: name || code, sysQty: qty };
+  });
+  const entries = Object.values(aggMap);
+  if (!entries.length) { showToast('⚠ Tidak ada data valid di kolom yang dipilih'); return; }
+
+  const doImport = () => {
+    if (productDB.length > 0) entries.forEach(e => productDB.push(e));
+    else productDB = entries;
+    save(); renderMaster(); renderStats();
+    document.getElementById('xlsxInfo').style.display = 'none';
+    xlsxRows = []; xlsxHeaders = [];
+    showToast(`✔ ${entries.length} produk unik diimport dari Excel`);
+  };
+
+  if (productDB.length > 0) {
+    showConfirm('Tambah ke Master?', `Tambahkan ${entries.length} produk ke master yang sudah ada (${productDB.length} produk)?`, 'TAMBAHKAN', doImport);
+  } else {
+    doImport();
+  }
+}
+
+// ─── MASTER QUEUE (manual) ────────────────────────────
+let masterQueue = [];
+
+function addMasterRow() {
+  const code = document.getElementById('mCode').value.trim();
+  const name = document.getElementById('mName').value.trim();
+  const qty  = parseInt(document.getElementById('mQty').value) || 0;
+  if (!code) { showToast('⚠ Kode wajib diisi'); document.getElementById('mCode').focus(); return; }
+  if (!name) { showToast('⚠ Nama wajib diisi'); document.getElementById('mName').focus(); return; }
+  masterQueue.push({ code, name, sysQty: qty });
+  renderPending();
+  document.getElementById('mCode').value = '';
+  document.getElementById('mName').value = '';
+  document.getElementById('mQty').value = '';
+  document.getElementById('mCode').focus();
+  showToast('✔ Ditambah: ' + name);
+}
+
+function removePendingRow(i) { masterQueue.splice(i, 1); renderPending(); }
+function clearPending() { masterQueue = []; renderPending(); }
+
+function renderPending() {
+  document.getElementById('pendingCount').textContent = masterQueue.length;
+  const container = document.getElementById('masterPending');
+  container.querySelectorAll('.pending-row').forEach(r => r.remove());
+  const empty = document.getElementById('pendingEmpty');
+  if (!masterQueue.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  masterQueue.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'pending-row';
+    row.innerHTML = `<span class="pending-code">${escHtml(item.code)}</span><span class="pending-name">${escHtml(item.name)}</span><span class="pending-qty">${item.sysQty}</span><span class="pending-del" onclick="removePendingRow(${i})">✕</span>`;
+    container.appendChild(row);
+  });
+}
+
+function saveMasterFromQueue() {
+  if (!masterQueue.length) { showToast('⚠ Antrian kosong'); return; }
+  masterQueue.forEach(item => productDB.push(item));
+  masterQueue = [];
+  renderPending();
+  save(); renderMaster(); renderStats();
+  showToast(`✔ Tersimpan, total ${productDB.length} produk`);
+}
+
+function clearMaster() {
+  showConfirm('Hapus Master Data?', 'Semua master data akan dihapus permanen. Data hasil SO tidak terpengaruh.', 'HAPUS SEMUA', () => {
+    productDB = []; masterQueue = [];
+    renderPending(); save(); renderMaster(); renderStats();
+    showToast('Master data dikosongkan');
+  });
+}
+
+// ─── EXPORT XLSX ──────────────────────────────────────
+function exportXLSX() {
+  if (typeof XLSX === 'undefined') { showToast('⚠ Library XLSX belum siap'); return; }
+
+  const wsData = [['Kode', 'Nama Produk', 'Qty Sistem', 'Qty Fisik', 'Selisih', 'Status']];
+
+  // Checked products from master
+  productDB.forEach(p => {
+    const key = p.code + '|' + p.name;
+    if (soData[key]) {
+      const d = soData[key];
+      const diff = d.physQty - d.sysQty;
+      wsData.push([d.code, d.name, d.sysQty, d.physQty, diff, calcStatus(diff)]);
+    } else {
+      wsData.push([p.code, p.name, p.sysQty, '', '', 'BELUM DICEK']);
+    }
+  });
+
+  // Items in soData not in productDB
+  Object.keys(soData).forEach(k => {
+    const d = soData[k];
+    if (!productDB.some(p => p.code === d.code && p.name === d.name)) {
+      const diff = d.physQty - d.sysQty;
+      wsData.push([d.code, d.name, d.sysQty, d.physQty, diff, calcStatus(diff)]);
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 18 }, { wch: 36 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Stock Opname');
+
+  // Summary sheet
+  const keys = Object.keys(soData);
+  const total = productDB.length;
+  const checked = keys.length;
+  const missing = Math.max(0, total - checked);
+  let plus = 0, minus = 0, sesuai = 0;
+  keys.forEach(k => {
+    const diff = soData[k].physQty - soData[k].sysQty;
+    if (diff > 0) plus++; else if (diff < 0) minus++; else sesuai++;
+  });
+  const summaryData = [
+    ['RINGKASAN STOCK OPNAME'],
+    ['Tanggal Export', new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })],
+    [''],
+    ['Total Produk', total],
+    ['Sudah Dicek', checked],
+    ['Missing (Belum Dicek)', missing],
+    ['Plus (Fisik > Sistem)', plus],
+    ['Minus (Fisik < Sistem)', minus],
+    ['Sesuai', sesuai],
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols'] = [{ wch: 28 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+
+  XLSX.writeFile(wb, 'StockOpname_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  showToast('✔ File XLSX didownload');
+}
+
+// ─── HELPERS ─────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── SCANNER HASIL (Halaman Hasil in Scanner Mode) ───
+var scannerActiveFilters = new Set(['all']);
+var cmpActiveFilters = new Set(['all']);
+
+function filterColor(key) {
+  if (key === 'all') return 'purple';
+  if (key === 'found' || key === 'status:NEW') return 'green';
+  if (key === 'missing' || key === 'notfound') return 'red';
+  if (key === 'extra') return 'orange';
+  if (key === 'status:SHOW') return 'violet';
+  if (key === 'status:DISPLAY') return 'yellow';
+  if (key === 'status:REFURB') return 'blue';
+  if (key === 'status:ERROR' || key === 'status:DAMAGED') return 'red';
+  if (key.startsWith('cat:')) return 'blue';
+  return 'purple';
+}
+let currentSHTab = 0;
+
+function switchSHTab(i) {
+  [0,1,2].forEach(function(j){
+    var tab = document.getElementById('shtab'+j);
+    var panel = document.getElementById('shpanel'+j);
+    if(tab){ tab.style.color = i===j ? '#a78bfa' : 'var(--text3)'; tab.style.borderBottom = i===j ? '2px solid #7c3aed' : '2px solid transparent'; }
+    if(panel) panel.style.display = i===j ? 'block' : 'none';
+  });
+  currentSHTab = i;
+  if(i===1) renderScannerCompare();
+  if(i===2) renderBelumScan();
+}
+
+function buildScannerFilterBar() {
+  var bar = document.getElementById('scannerFilterBar');
+  if (!bar) return;
+
+  var total = imeiData.length;
+  var foundCount = imeiData.filter(function(d){ return d.fromDB; }).length;
+  var notFoundCount = total - foundCount;
+  var statusTally = {}, catTally = {};
+  imeiData.forEach(function(d){
+    if (d.status) statusTally[d.status] = (statusTally[d.status]||0)+1;
+    var cat = d.mainCategory ? d.mainCategory.replace(/^\d+\s*-\s*\w+\s*-\s*/,'').trim() : '';
+    if (cat) catTally[cat] = (catTally[cat]||0)+1;
+  });
+
+  function chip(key, label, count, color) {
+    var isActive = scannerActiveFilters.has(key);
+    return '<button class="filter-chip'+(isActive?' active':'')+'" data-color="'+color+'" onclick="toggleScannerFilter(\''+key+'\')">'
+      + escHtml(label)
+      + (count !== null ? '<span class="chip-count">'+count+'</span>' : '')
+      + '</button>';
+  }
+
+  var STATUS_ORDER = ['NEW','SHOW','DISPLAY','REFURB','ERROR','DAMAGED'];
+  var html = '<div class="filter-group"><div class="filter-group-label">Tampilan</div>';
+  html += chip('all','Semua',total,'purple');
+  html += chip('found','Terdaftar',foundCount,'green');
+  html += chip('notfound','Tdk Terdaftar',notFoundCount,'red');
+  html += '</div>';
+
+  var hasStatus = STATUS_ORDER.some(function(s){ return statusTally[s]; });
+  if (hasStatus) {
+    html += '<div class="filter-group"><div class="filter-group-label">Status</div>';
+    STATUS_ORDER.forEach(function(s){
+      if (statusTally[s]) html += chip('status:'+s, imeiStatusLabel[s]||s, statusTally[s], filterColor('status:'+s));
+    });
+    Object.keys(statusTally).forEach(function(s){
+      if (STATUS_ORDER.indexOf(s)<0) html += chip('status:'+s, imeiStatusLabel[s]||s, statusTally[s], 'purple');
+    });
+    html += '</div>';
+  }
+
+  var catKeys = Object.keys(catTally).sort(function(a,b){ return catTally[b]-catTally[a]; });
+  if (catKeys.length) {
+    html += '<div class="filter-group"><div class="filter-group-label">Kategori</div>';
+    catKeys.forEach(function(cat){ html += chip('cat:'+cat, cat, catTally[cat], 'blue'); });
+    html += '</div>';
+  }
+
+  bar.innerHTML = html;
+}
+
+function toggleScannerFilter(key) {
+  if (key === 'all') {
+    scannerActiveFilters = new Set(['all']);
+  } else {
+    scannerActiveFilters.delete('all');
+    if (scannerActiveFilters.has(key)) {
+      scannerActiveFilters.delete(key);
+      if (scannerActiveFilters.size === 0) scannerActiveFilters.add('all');
+    } else {
+      scannerActiveFilters.add(key);
+    }
+  }
+  buildScannerFilterBar();
+  renderScannerHasilCards();
+}
+
+function buildCmpFilterBar() {
+  var bar = document.getElementById('cmpFilterBar');
+  if (!bar) return;
+
+  var scannedSet = new Set(imeiData.map(function(d){ return d.imei; }));
+  var missingCount = 0, foundCount = 0, extraCount = 0;
+  var statusTally = {}, catTally = {};
+  Object.entries(imeiDB).forEach(function(e){
+    var imei = e[0], ref = e[1];
+    if (scannedSet.has(imei)) foundCount++; else missingCount++;
+    if (ref.status) statusTally[ref.status] = (statusTally[ref.status]||0)+1;
+    var cat = ref.mainCategory ? ref.mainCategory.replace(/^\d+\s*-\s*\w+\s*-\s*/,'').trim() : '';
+    if (cat) catTally[cat] = (catTally[cat]||0)+1;
+  });
+  imeiData.forEach(function(d){ if (!imeiDB[d.imei]) extraCount++; });
+  var total = missingCount + foundCount + extraCount;
+
+  function chip(key, label, count, color) {
+    var isActive = cmpActiveFilters.has(key);
+    return '<button class="filter-chip'+(isActive?' active':'')+'" data-color="'+color+'" onclick="toggleCmpFilter(\''+key+'\')">'
+      + escHtml(label)
+      + (count !== null ? '<span class="chip-count">'+count+'</span>' : '')
+      + '</button>';
+  }
+
+  var STATUS_ORDER = ['NEW','SHOW','DISPLAY','REFURB','ERROR','DAMAGED'];
+  var html = '<div class="filter-group"><div class="filter-group-label">Hasil Pindai</div>';
+  html += chip('all','Semua',total,'purple');
+  html += chip('missing','Belum Pindai',missingCount,'red');
+  html += chip('found','Terpindai',foundCount,'green');
+  html += chip('extra','Tdk Terdaftar',extraCount,'orange');
+  html += '</div>';
+
+  if (Object.keys(statusTally).length) {
+    html += '<div class="filter-group"><div class="filter-group-label">Status Produk</div>';
+    STATUS_ORDER.forEach(function(s){
+      if (statusTally[s]) html += chip('status:'+s, imeiStatusLabel[s]||s, statusTally[s], filterColor('status:'+s));
+    });
+    Object.keys(statusTally).forEach(function(s){
+      if (STATUS_ORDER.indexOf(s)<0) html += chip('status:'+s, imeiStatusLabel[s]||s, statusTally[s], 'purple');
+    });
+    html += '</div>';
+  }
+
+  var catKeys = Object.keys(catTally).sort(function(a,b){ return catTally[b]-catTally[a]; });
+  if (catKeys.length) {
+    html += '<div class="filter-group"><div class="filter-group-label">Kategori</div>';
+    catKeys.forEach(function(cat){ html += chip('cat:'+cat, cat, catTally[cat], 'blue'); });
+    html += '</div>';
+  }
+
+  bar.innerHTML = html;
+}
+
+function toggleCmpFilter(key) {
+  if (key === 'all') {
+    cmpActiveFilters = new Set(['all']);
+  } else {
+    cmpActiveFilters.delete('all');
+    if (cmpActiveFilters.has(key)) {
+      cmpActiveFilters.delete(key);
+      if (cmpActiveFilters.size === 0) cmpActiveFilters.add('all');
+    } else {
+      cmpActiveFilters.add(key);
+    }
+  }
+  buildCmpFilterBar();
+  renderScannerCompare();
+}
+
+function renderScannerHasil() {
+  renderStatsScanner();
+  renderScannerHasilCards();
+  if (currentSHTab === 1) renderScannerCompare();
+  if (currentSHTab === 2) renderBelumScan();
+}
+
+function renderScannerHasilCards() {
+  var cards = document.getElementById('scannerHasilCards');
+  var empty = document.getElementById('scannerHasilEmpty');
+  if (!cards) return;
+
+  buildScannerFilterBar();
+  var filtered = imeiData.slice().reverse();
+  if (!scannerActiveFilters.has('all')) {
+    filtered = filtered.filter(function(d){
+      var hasDb  = scannerActiveFilters.has('found') || scannerActiveFilters.has('notfound');
+      var hasSt  = Array.from(scannerActiveFilters).some(function(k){ return k.indexOf('status:')===0; });
+      var hasCat = Array.from(scannerActiveFilters).some(function(k){ return k.indexOf('cat:')===0; });
+      var dbOk  = !hasDb  || (scannerActiveFilters.has('found') && d.fromDB) || (scannerActiveFilters.has('notfound') && !d.fromDB);
+      var stOk  = !hasSt  || scannerActiveFilters.has('status:'+(d.status||''));
+      var catOk = !hasCat;
+      if (hasCat) {
+        var dcat = d.mainCategory ? d.mainCategory.replace(/^\d+\s*-\s*\w+\s*-\s*/,'').trim() : '';
+        catOk = scannerActiveFilters.has('cat:'+dcat);
+      }
+      return dbOk && stOk && catOk;
+    });
+  }
+
+  if (!filtered.length) { cards.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  cards.innerHTML = filtered.map(function(d) {
+    var cls = imeiStatusClass[d.status] || 'imei-status-other';
+    var lbl = imeiStatusLabel[d.status] || d.status;
+    var realIdx = imeiData.findIndex(function(x){ return x.imei === d.imei && x.ts === d.ts; });
+    var scanTime = new Date(d.ts).toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    var scanDate = new Date(d.ts).toLocaleDateString('id-ID', {day:'2-digit',month:'short'});
+    var foundDot = d.fromDB
+      ? '<span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;flex-shrink:0;" title="Ada di DB"></span>'
+      : '<span style="width:7px;height:7px;background:var(--minus);border-radius:50%;display:inline-block;flex-shrink:0;" title="Tidak di DB"></span>';
+    var dbBadge = d.fromDB
+      ? '<span style="font-family:var(--mono);font-size:7px;color:#22c55e;letter-spacing:1px;background:rgba(34,197,94,.1);padding:1px 6px;">TERDAFTAR</span>'
+      : '<span style="font-family:var(--mono);font-size:7px;color:var(--minus);letter-spacing:1px;background:rgba(239,68,68,.1);padding:1px 6px;">TDK TERDAFTAR</span>';
+    var codeSpan = d.productCode
+      ? '<span style="font-family:var(--mono);font-size:8px;color:#a78bfa;letter-spacing:.5px;">'+escHtml(d.productCode)+'</span>'
+      : '<span style="font-family:var(--mono);font-size:8px;color:var(--text3);">—</span>';
+    var nameDiv = d.productName
+      ? '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;">'+escHtml(d.productName)+'</div>'
+      : '<div style="font-size:12px;color:var(--text3);font-style:italic;">Produk tidak dikenal</div>';
+    return '<div style="background:var(--surface);border-bottom:1px solid rgba(124,58,237,.15);padding:10px 14px;display:flex;align-items:flex-start;gap:10px;">' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'+foundDot+codeSpan+
+          '<span class="'+cls+' badge" style="border-radius:2px;font-size:8px;margin-left:auto;flex-shrink:0;">'+lbl+'</span></div>' +
+        nameDiv +
+        '<div style="font-family:var(--mono);font-size:10px;color:#a78bfa;letter-spacing:.5px;margin-top:3px;word-break:break-all;">'+escHtml(d.imei)+'</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">'+dbBadge+
+          '<span style="font-family:var(--mono);font-size:7px;color:var(--text3);">'+scanDate+' '+scanTime+'</span></div>' +
+      '</div>' +
+      '<button class="result-del-btn" onclick="deleteImei('+realIdx+')" title="Hapus" style="flex-shrink:0;margin-top:2px;">&#10005;</button>' +
+    '</div>';
+  }).join('');
+}
+
+function renderScannerCompare() {
+  var container = document.getElementById('scannerCompareList');
+  var emptyEl = document.getElementById('scannerCompareEmpty');
+  if (!container) return;
+
+  var scannedSet = new Set(imeiData.map(function(d){ return d.imei; }));
+
+  // Build IMEI list: all from DB + extras scanned not in DB
+  var items = [];
+
+  // IMEIs in DB: mark as missing or found
+  Object.entries(imeiDB).forEach(function(entry){
+    var imei = entry[0]; var ref = entry[1];
+    var scanned = scannedSet.has(imei);
+    items.push({ imei: imei, code: ref.productCode||'', name: ref.productName||'?', status: ref.status||'NEW', mainCategory: ref.mainCategory||'', compareStatus: scanned ? 'found' : 'missing' });
+  });
+
+  // IMEIs scanned but NOT in DB (extra)
+  imeiData.forEach(function(d){
+    if (!imeiDB[d.imei]) {
+      items.push({ imei: d.imei, code: d.productCode||'', name: d.productName||'', status: d.status||'OTHER', mainCategory: d.mainCategory||'', compareStatus: 'extra' });
+    }
+  });
+
+  // Sort: missing first, then extra, then found
+  var order = { missing:0, extra:1, found:2 };
+  items.sort(function(a,b){ return (order[a.compareStatus]||3) - (order[b.compareStatus]||3); });
+
+  // Summary strip dengan breakdown per status & kategori
+  var nMissing = items.filter(function(i){ return i.compareStatus==='missing'; }).length;
+  var nFound   = items.filter(function(i){ return i.compareStatus==='found'; }).length;
+  var nExtra   = items.filter(function(i){ return i.compareStatus==='extra'; }).length;
+  var STATUS_ORDER_CMP = ['NEW','SHOW','DISPLAY','REFURB','ERROR','DAMAGED','OTHER'];
+  var statusAccentCmp = {
+    NEW:     {color:'#22c55e',  bg:'rgba(34,197,94,.12)',   border:'rgba(34,197,94,.3)'},
+    SHOW:    {color:'#a78bfa',  bg:'rgba(167,139,250,.12)', border:'rgba(167,139,250,.3)'},
+    DISPLAY: {color:'#f0c040',  bg:'rgba(240,192,64,.12)',  border:'rgba(240,192,64,.3)'},
+    REFURB:  {color:'#60a5fa',  bg:'rgba(96,165,250,.12)',  border:'rgba(96,165,250,.3)'},
+    ERROR:   {color:'#ff6b6b',  bg:'rgba(239,68,68,.15)',   border:'rgba(239,68,68,.4)'},
+    DAMAGED: {color:'#ef4444',  bg:'rgba(239,68,68,.12)',   border:'rgba(239,68,68,.3)'},
+    OTHER:   {color:'#94a3b8',  bg:'rgba(148,163,184,.08)', border:'rgba(148,163,184,.25)'},
+  };
+  function statusPills(cmpStatus) {
+    var filtered2 = items.filter(function(it){ return it.compareStatus===cmpStatus; });
+    var tally = {}, catTally = {};
+    filtered2.forEach(function(it){
+      var st = it.status || 'OTHER';
+      tally[st] = (tally[st]||0)+1;
+      var cat = it.mainCategory ? it.mainCategory.replace(/^\d+\s*-\s*\w+\s*-\s*/,'').trim() : '';
+      if (cat) catTally[cat] = (catTally[cat]||0)+1;
+    });
+    var keys = STATUS_ORDER_CMP.filter(function(s){ return tally[s]; })
+      .concat(Object.keys(tally).filter(function(s){ return STATUS_ORDER_CMP.indexOf(s)<0; }));
+    if (!keys.length) return '<span style="font-family:var(--mono);font-size:8px;color:var(--text3);">-</span>';
+    var html2 = keys.map(function(st){
+      var ac = statusAccentCmp[st] || statusAccentCmp['OTHER'];
+      var lbl = imeiStatusLabel[st] || st;
+      return '<span style="display:inline-flex;flex-direction:column;align-items:center;min-width:36px;padding:3px 7px;border:1px solid '+ac.border+';background:'+ac.bg+';border-radius:2px;margin:2px 2px 0 0;">'
+        + '<span style="font-family:var(--cond);font-weight:900;font-size:15px;line-height:1;color:'+ac.color+';">'+tally[st]+'</span>'
+        + '<span style="font-family:var(--mono);font-size:6px;letter-spacing:.8px;color:'+ac.color+';opacity:.85;text-transform:uppercase;margin-top:1px;">'+lbl+'</span>'
+        + '</span>';
+    }).join('');
+    var catKeys2 = Object.keys(catTally).sort(function(a,b){ return catTally[b]-catTally[a]; });
+    if (catKeys2.length) {
+      html2 += '<div style="width:100%;height:1px;background:rgba(96,165,250,.2);margin:4px 0 2px;"></div>';
+      html2 += catKeys2.map(function(cat){
+        return '<span style="display:inline-flex;flex-direction:column;align-items:center;min-width:36px;padding:2px 6px;border:1px solid rgba(96,165,250,.3);background:rgba(96,165,250,.08);border-radius:2px;margin:2px 2px 0 0;">'
+          + '<span style="font-family:var(--cond);font-weight:900;font-size:13px;line-height:1;color:#60a5fa;">'+catTally[cat]+'</span>'
+          + '<span style="font-family:var(--mono);font-size:5px;color:#60a5fa;opacity:.85;text-transform:uppercase;margin-top:1px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+cat+'">'+cat+'</span>'
+          + '</span>';
+      }).join('');
+    }
+    return html2;
+  }
+  var strip = document.getElementById('cmpSummaryStrip');
+  if (strip) {
+    strip.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:rgba(124,58,237,.25);">'
+      + '<div style="background:#1a0510;padding:8px 6px;text-align:center;">'
+        + '<div style="font-family:var(--cond);font-weight:900;font-size:20px;color:var(--minus);line-height:1;">'+nMissing+'</div>'
+        + '<div style="font-family:var(--mono);font-size:6px;color:#9e2020;letter-spacing:1px;text-transform:uppercase;margin-top:2px;margin-bottom:6px;">Belum Dipindai</div>'
+        + '<div style="display:flex;flex-wrap:wrap;justify-content:center;">'+statusPills('missing')+'</div>'
+      + '</div>'
+      + '<div style="background:#0a1a0a;padding:8px 6px;text-align:center;">'
+        + '<div style="font-family:var(--cond);font-weight:900;font-size:20px;color:var(--plus);line-height:1;">'+nFound+'</div>'
+        + '<div style="font-family:var(--mono);font-size:6px;color:#16a34a;letter-spacing:1px;text-transform:uppercase;margin-top:2px;margin-bottom:6px;">Terpindai</div>'
+        + '<div style="display:flex;flex-wrap:wrap;justify-content:center;">'+statusPills('found')+'</div>'
+      + '</div>'
+      + '<div style="background:#0f0f14;padding:8px 6px;text-align:center;">'
+        + '<div style="font-family:var(--cond);font-weight:900;font-size:20px;color:var(--accent);line-height:1;">'+nExtra+'</div>'
+        + '<div style="font-family:var(--mono);font-size:6px;color:#9a7d20;letter-spacing:1px;text-transform:uppercase;margin-top:2px;margin-bottom:6px;">Tdk Terdaftar</div>'
+        + '<div style="display:flex;flex-wrap:wrap;justify-content:center;">'+statusPills('extra')+'</div>'
+      + '</div>'
+    + '</div>';
+  }
+
+  buildCmpFilterBar();
+  var filtered = items;
+  if (!cmpActiveFilters.has('all')) {
+    filtered = items.filter(function(it){
+      var hasCmp = cmpActiveFilters.has('missing') || cmpActiveFilters.has('found') || cmpActiveFilters.has('extra');
+      var hasSt  = Array.from(cmpActiveFilters).some(function(k){ return k.indexOf('status:')===0; });
+      var hasCat = Array.from(cmpActiveFilters).some(function(k){ return k.indexOf('cat:')===0; });
+      var cmpOk = !hasCmp || cmpActiveFilters.has(it.compareStatus);
+      var stOk  = !hasSt  || cmpActiveFilters.has('status:'+(it.status||''));
+      var catOk = !hasCat;
+      if (hasCat) {
+        var icat = it.mainCategory ? it.mainCategory.replace(/^\d+\s*-\s*\w+\s*-\s*/,'').trim() : '';
+        catOk = cmpActiveFilters.has('cat:'+icat);
+      }
+      return cmpOk && stOk && catOk;
+    });
+  }
+
+  if (!filtered.length) { container.innerHTML = ''; emptyEl.style.display = 'block'; return; }
+  emptyEl.style.display = 'none';
+
+  container.innerHTML = filtered.map(function(item){
+    var bgColor = item.compareStatus==='missing' ? 'rgba(239,68,68,.04)' : item.compareStatus==='extra' ? 'rgba(240,192,64,.04)' : 'rgba(34,197,94,.03)';
+    var borderColor = item.compareStatus==='missing' ? 'rgba(239,68,68,.18)' : item.compareStatus==='extra' ? 'rgba(240,192,64,.18)' : 'rgba(124,58,237,.12)';
+    var statusTag = '';
+    if (item.compareStatus==='missing') statusTag = '<span class="compare-missing-tag" style="font-size:8px;padding:3px 7px;display:block;text-align:center;">NOT SCANNED</span>';
+    else if (item.compareStatus==='extra') statusTag = '<span style="display:block;text-align:center;font-family:var(--cond);font-weight:800;font-size:8px;padding:3px 7px;background:rgba(240,192,64,.15);color:var(--accent);">UNREGISTERED</span>';
+    else statusTag = '<span class="compare-ok-tag" style="font-size:8px;padding:3px 7px;display:block;text-align:center;">VERIFIED</span>';
+    var cls = imeiStatusClass[item.status] || 'imei-status-other';
+    var lbl = imeiStatusLabel[item.status] || item.status;
+    var codeRow = item.code
+      ? '<div style="font-family:var(--mono);font-size:8px;color:#a78bfa;letter-spacing:.5px;margin-bottom:1px;">'+escHtml(item.code)+'</div>'
+      : '';
+    var nameRow = item.name
+      ? '<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">'+escHtml(item.name)+'</div>'
+      : '';
+    var condBadge = '<span class="'+cls+' badge" style="border-radius:2px;font-size:7px;padding:2px 6px;">'+lbl+'</span>';
+    return '<div style="display:grid;grid-template-columns:1fr 72px;gap:8px;padding:10px 12px;border-bottom:1px solid '+borderColor+';align-items:center;background:'+bgColor+';">' +
+      '<div style="min-width:0;">' +
+        '<div style="font-family:var(--mono);font-size:10px;color:#a78bfa;letter-spacing:.5px;word-break:break-all;margin-bottom:3px;">'+escHtml(item.imei)+'</div>' +
+        codeRow +
+        nameRow +
+        condBadge +
+      '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:flex-end;">'+statusTag+'</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ─── PANEL 2: IMEI BELUM SCAN ─────────────────────────
+let currentBlmScanFilter = 'all';
+
+function renderBelumScan() {
+  var scannedSet = new Set(imeiData.map(function(d){ return d.imei; }));
+  // Group unscanned by product
+  var byProduct = {};
+  Object.entries(imeiDB).forEach(function([imei, ref]) {
+    if (scannedSet.has(imei)) return;
+    var key = (ref.productCode||'')+'|||'+(ref.productName||'?');
+    if (!byProduct[key]) byProduct[key] = { code: ref.productCode||'', name: ref.productName||'?', imeis: [] };
+    byProduct[key].imeis.push({ imei: imei, status: ref.status||'NEW' });
+  });
+
+  var groups = Object.values(byProduct);
+  var totalBlm = groups.reduce(function(s,g){ return s+g.imeis.length; }, 0);
+  var blmEl = document.getElementById('blmScanCount');
+  var prodEl = document.getElementById('blmScanProdCount');
+  if (blmEl) blmEl.textContent = totalBlm;
+  if (prodEl) prodEl.textContent = groups.length;
+
+  // Build product filter chips
+  var filterBar = document.getElementById('blmScanProdFilter');
+  if (filterBar) {
+    var chips = '<button class="filter-chip'+(currentBlmScanFilter==='all'?' active':'')+'" onclick="setBlmScanFilter(\'all\')" style="border-color:rgba(239,68,68,.3);font-size:10px;">Semua ('+totalBlm+')</button>';
+    groups.forEach(function(g){
+      var safe = escHtml((g.code||g.name).replace(/'/g,'')).slice(0,12);
+      var isAct = currentBlmScanFilter === (g.code||g.name);
+      chips += '<button class="filter-chip'+(isAct?' active':'')+'" onclick="setBlmScanFilter(\''+safe+'\')" style="border-color:rgba(239,68,68,.3);font-size:10px;">'+escHtml((g.code||g.name).slice(0,14))+' ('+g.imeis.length+')</button>';
+    });
+    filterBar.innerHTML = chips;
+  }
+
+  var listEl = document.getElementById('blmScanList');
+  var emptyEl = document.getElementById('blmScanEmpty');
+  if (!listEl) return;
+
+  if (!totalBlm) { listEl.innerHTML = ''; emptyEl.style.display = 'block'; return; }
+  emptyEl.style.display = 'none';
+
+  var filteredGroups = groups;
+  if (currentBlmScanFilter !== 'all') {
+    filteredGroups = groups.filter(function(g){ return (g.code||g.name) === currentBlmScanFilter; });
+  }
+
+  listEl.innerHTML = filteredGroups.map(function(g) {
+    var header = '<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(239,68,68,.06);border-bottom:1px solid rgba(239,68,68,.15);border-top:1px solid rgba(239,68,68,.1);">' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-family:var(--mono);font-size:9px;color:var(--accent);">'+escHtml(g.code||'—')+'</div>' +
+        '<div style="font-size:13px;font-weight:600;color:var(--text);">'+escHtml(g.name)+'</div>' +
+      '</div>' +
+      '<div style="font-family:var(--cond);font-weight:900;font-size:16px;color:var(--minus);flex-shrink:0;">'+g.imeis.length+' IMEI</div>' +
+    '</div>';
+    var rows = g.imeis.map(function(item) {
+      var cls = imeiStatusClass[item.status] || 'imei-status-other';
+      var lbl = imeiStatusLabel[item.status] || item.status;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 14px 7px 22px;border-bottom:1px solid rgba(239,68,68,.08);">' +
+        '<span style="width:5px;height:5px;background:var(--minus);border-radius:50%;flex-shrink:0;"></span>' +
+        '<div style="flex:1;font-family:var(--mono);font-size:10px;color:var(--text2);letter-spacing:.5px;word-break:break-all;">'+escHtml(item.imei)+'</div>' +
+        '<span class="'+cls+' badge" style="border-radius:2px;font-size:8px;flex-shrink:0;">'+lbl+'</span>' +
+      '</div>';
+    }).join('');
+    return header + rows;
+  }).join('');
+}
+
+function setBlmScanFilter(f) {
+  currentBlmScanFilter = f;
+  renderBelumScan();
+}
+
+// ─── SCANNER MASTER FUNCTIONS ─────────────────────────
+let currentSmStatus = 'NEW';
+let smQueue = [];
+
+function switchSMTab(i) {
+  [0,1,2].forEach(j => {
+    const tab = document.getElementById('smtab'+j);
+    const panel = document.getElementById('smpanel'+j);
+    if (tab) {
+      tab.style.color = i === j ? '#a78bfa' : 'var(--text3)';
+      tab.style.borderBottom = i === j ? '2px solid #7c3aed' : '2px solid transparent';
+    }
+    if (panel) panel.style.display = i === j ? 'block' : 'none';
+  });
+  if (i === 2) renderImeiDbCards();
+}
+
+function selectSmStatus(st) {
+  currentSmStatus = st;
+  ['NEW','SHOW','DISPLAY','ERROR','REFURB','DAMAGED','OTHER'].forEach(s => {
+    const btn = document.getElementById('smStatus-' + s);
+    if (btn) btn.classList.toggle('selected', s === st);
+  });
+}
+
+function addImeiToMasterDB() {
+  const imei = document.getElementById('smImei').value.trim();
+  const code = document.getElementById('smCode').value.trim();
+  const name = document.getElementById('smName').value.trim();
+  if (!imei) { showToast('⚠ IMEI wajib diisi'); document.getElementById('smImei').focus(); return; }
+  if (imeiDB[imei]) { showToast('⚠ IMEI sudah ada di database'); return; }
+  smQueue.push({ imei, productCode: code, productName: name, status: currentSmStatus });
+  renderSmQueue();
+  document.getElementById('smImei').value = '';
+  document.getElementById('smCode').value = '';
+  document.getElementById('smName').value = '';
+  document.getElementById('smImei').focus();
+  showToast('✔ Ditambah ke antrian: ' + imei);
+}
+
+function renderSmQueue() {
+  document.getElementById('smQueueCount').textContent = smQueue.length;
+  const container = document.getElementById('smQueueList');
+  const empty = document.getElementById('smQueueEmpty');
+  if (!container) return;
+  if (!smQueue.length) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    // Auto-save if queue was just committed
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = smQueue.map((item, i) => {
+    const cls = imeiStatusClass[item.status] || 'imei-status-other';
+    const lbl = imeiStatusLabel[item.status] || item.status;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid rgba(124,58,237,.15);font-family:var(--mono);font-size:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="color:#a78bfa;word-break:break-all;">${escHtml(item.imei)}</div>
+        ${item.productName ? `<div style="color:var(--text);font-size:9px;">${escHtml(item.productName)}</div>` : ''}
+      </div>
+      <span class="${cls} badge" style="border-radius:2px;font-size:8px;">${lbl}</span>
+      <span style="color:var(--minus);cursor:pointer;font-size:14px;padding:0 2px;" onclick="removeSmQueue(${i})">✕</span>
+    </div>`;
+  }).join('') +
+  `<div style="padding:10px 14px;display:flex;gap:8px;">
+    <button class="btn-submit" style="flex:1;background:#7c3aed;border-color:#7c3aed;font-size:13px;" onclick="saveSmQueue()">SIMPAN KE DATABASE</button>
+    <button class="btn-secondary" onclick="clearSmQueue()" style="border-color:rgba(124,58,237,.4);color:#a78bfa;font-size:11px;">BERSIHKAN</button>
+  </div>`;
+}
+
+function removeSmQueue(i) { smQueue.splice(i, 1); renderSmQueue(); }
+function clearSmQueue() { smQueue = []; renderSmQueue(); }
+
+function saveSmQueue() {
+  if (!smQueue.length) { showToast('⚠ Antrian kosong'); return; }
+  let added = 0, dupes = 0;
+  smQueue.forEach(item => {
+    if (imeiDB[item.imei]) { dupes++; return; }
+    imeiDB[item.imei] = { productCode: item.productCode, productName: item.productName, status: item.status };
+    added++;
+  });
+  smQueue = [];
+  renderSmQueue();
+  save();
+  updateImeiDbCount();
+  renderScannerMaster();
+  showToast(`✔ ${added} IMEI disimpan ke DB${dupes ? ', ' + dupes + ' duplikat diabaikan' : ''}`);
+}
+
+function renderScannerMaster() {
+  const keys = Object.keys(imeiDB);
+  const countEl = document.getElementById('scannerMasterCount');
+  if (countEl) countEl.textContent = keys.length + ' IMEI';
+  const dbListCount = document.getElementById('imeiDbListCount');
+  if (dbListCount) dbListCount.textContent = keys.length;
+}
+
+function renderImeiDbCards() {
+  const keys = Object.keys(imeiDB);
+  const dbListCount = document.getElementById('imeiDbListCount');
+  if (dbListCount) dbListCount.textContent = keys.length;
+  const container = document.getElementById('imeiDbCards');
+  const empty = document.getElementById('imeiDbEmpty');
+  if (!container) return;
+  if (!keys.length) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = keys.map(imei => {
+    const ref = imeiDB[imei];
+    const cls = imeiStatusClass[ref.status] || 'imei-status-other';
+    const lbl = imeiStatusLabel[ref.status] || ref.status;
+    return `<div class="imei-master-card">
+      <div style="flex:1;min-width:0;">
+        <div class="imei-master-card-imei">${escHtml(imei)}</div>
+        ${ref.productCode ? `<div class="imei-master-card-code">${escHtml(ref.productCode)}</div>` : ''}
+        ${ref.productName ? `<div class="imei-master-card-name">${escHtml(ref.productName)}</div>` : ''}
+      </div>
+      <span class="${cls} badge imei-master-card-status" style="border-radius:2px;font-size:9px;">${lbl}</span>
+      <button class="imei-master-del-btn" onclick="deleteImeiFromDB('${escHtml(imei).replace(/'/g,"\\'")}')" title="Hapus">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteImeiFromDB(imei) {
+  if (!imeiDB[imei]) return;
+  delete imeiDB[imei];
+  save();
+  updateImeiDbCount();
+  renderImeiDbCards();
+  renderScannerMaster();
+  showToast('🗑 IMEI dihapus dari DB: ' + imei);
+}
+
+function clearImeiDB() {
+  showConfirm('Hapus Semua DB IMEI?', `${Object.keys(imeiDB).length} IMEI di database akan dihapus permanen.`, 'HAPUS SEMUA', () => {
+    imeiDB = {};
+    save();
+    updateImeiDbCount();
+    renderImeiDbCards();
+    renderScannerMaster();
+    showToast('Database IMEI dikosongkan');
+  });
+}
+
+function renderAll() { renderStats(); if (currentSoMode === 'imei') { renderImeiResults(); renderScannerHasil(); } else { renderResults(); } }
+</script>
+</body>
+</html>
